@@ -41,7 +41,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenTemplates,
 }) => {
   return (
-    <header className="h-11 bg-[#181818] border-b border-[#2b2b2b] flex items-center justify-between px-2 text-[#cccccc] select-none z-30 shrink-0">
+    <header 
+      className="bg-[#181818] border-b border-[#2b2b2b] flex items-center justify-between px-2 text-[#cccccc] select-none z-30 shrink-0"
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        minHeight: 'calc(44px + env(safe-area-inset-top, 0px))',
+      }}
+    >
       {/* Left side: Hamburger + Logo + Project Name */}
       <div className="flex items-center gap-2">
         <button

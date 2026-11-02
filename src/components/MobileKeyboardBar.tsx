@@ -31,7 +31,13 @@ export const MobileKeyboardBar: React.FC<MobileKeyboardBarProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-[#181818] border-t border-[#2b2b2b] overflow-x-auto select-none no-scrollbar shadow-inner z-20">
+    <div 
+      className="flex items-center gap-1.5 px-2 bg-[#181818] border-t border-[#2b2b2b] overflow-x-auto select-none no-scrollbar shadow-inner z-20 shrink-0"
+      style={{
+        paddingTop: '6px',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 6px)',
+      }}
+    >
       {/* Undo / Redo Actions */}
       <button
         onClick={onUndo}

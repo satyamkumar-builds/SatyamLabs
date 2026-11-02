@@ -36,15 +36,39 @@ export function App() {
   const [files, setFiles] = useState<FileItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_FILES);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {}
     return STARTER_TEMPLATES[0].files;
   });
 
-  const [activeFileId, setActiveFileId] = useState<string>(() => files[0]?.id || '');
+  const [activeFileId, setActiveFileId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_FILES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const firstNonFolder = parsed.find((f: FileItem) => !f.isFolder);
+          if (firstNonFolder) return firstNonFolder.id;
+        }
+      }
+    } catch (e) {}
+    return STARTER_TEMPLATES[0].files.find(f => !f.isFolder)?.id || '';
+  });
   
   const [tabs, setTabs] = useState<TabItem[]>(() => {
-    return files.filter(f => !f.isFolder).map(f => ({ fileId: f.id }));
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_FILES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((f: FileItem) => !f.isFolder).map((f: FileItem) => ({ fileId: f.id }));
+        }
+      }
+    } catch (e) {}
+    return STARTER_TEMPLATES[0].files.filter(f => !f.isFolder).map(f => ({ fileId: f.id }));
   });
 
   const [settings, setSettings] = useState<EditorSettings>(() => {
@@ -80,10 +104,32 @@ export function App() {
 
   const editorRef = useRef<EditorAreaHandle>(null);
 
-  // Active file item
+  // Active file item with robust fallback
   const activeFile = useMemo(() => {
-    return files.find(f => f.id === activeFileId) || null;
-  }, [files, activeFileId]);
+    if (activeFileId) {
+      const found = files.find(f => f.id === activeFileId && !f.isFolder);
+      if (found) return found;
+    }
+    if (tabs.length > 0) {
+      const tabFile = files.find(f => f.id === tabs[0].fileId && !f.isFolder);
+      if (tabFile) return tabFile;
+    }
+    return files.find(f => !f.isFolder) || null;
+  }, [files, activeFileId, tabs]);
+
+  // Keep activeFileId in sync with activeFile
+  useEffect(() => {
+    if (activeFile && activeFile.id !== activeFileId) {
+      setActiveFileId(activeFile.id);
+    }
+  }, [activeFile, activeFileId]);
+
+  // Ensure activeFile is always in tabs
+  useEffect(() => {
+    if (activeFile && !tabs.some(t => t.fileId === activeFile.id)) {
+      setTabs(prev => [...prev, { fileId: activeFile.id }]);
+    }
+  }, [activeFile, tabs]);
 
   // Persist files and settings
   useEffect(() => {
@@ -281,7 +327,13 @@ export function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#1e1e1e] text-[#cccccc]">
+    <div 
+      className="flex flex-col h-full w-full min-h-screen overflow-hidden bg-[#1e1e1e] text-[#cccccc]"
+      style={{
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+      }}
+    >
       {/* Top Navbar */}
       <Navbar
         projectName={activeFile?.name || 'Workspace'}

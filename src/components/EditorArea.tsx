@@ -103,6 +103,7 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(({
   const charCount = activeFile?.content ? activeFile.content.length : 0;
 
   if (!activeFile) {
+    const defaultFile = files.find(f => !f.isFolder);
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-[#1e1e1e] text-[#858585] p-6 text-center select-none">
         <img src="./logo.svg" alt="SatyamLabs" className="w-14 h-14 mb-3 opacity-40" />
@@ -110,6 +111,14 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(({
         <p className="text-xs max-w-xs text-[#666666] mb-4">
           Select a file from the explorer or choose a starter template from the top bar.
         </p>
+        {defaultFile && (
+          <button
+            onClick={() => onSelectTab(defaultFile.id)}
+            className="px-4 py-2 bg-[#007acc] hover:bg-[#0062a3] text-white text-xs font-semibold rounded-md shadow transition-colors flex items-center gap-1.5"
+          >
+            Open {defaultFile.name}
+          </button>
+        )}
       </div>
     );
   }
