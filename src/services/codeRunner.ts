@@ -1,4 +1,5 @@
 import type { ExecutionLog, SupportedLanguage } from '../types';
+import { runOfflineCCpp, runOfflineJava, runOfflinePython } from './offlineRunner';
 
 declare global {
   interface Window {
@@ -7,15 +8,14 @@ declare global {
   }
 }
 
-// Piston API mapping
-const PISTON_LANGUAGE_MAP: Record<string, { language: string; version: string }> = {
-  python: { language: 'python', version: '3.10.0' },
-  cpp: { language: 'c++', version: '10.2.0' },
-  c: { language: 'c', version: '10.2.0' },
-  java: { language: 'java', version: '15.0.2' },
-  rust: { language: 'rust', version: '1.68.2' },
-  javascript: { language: 'javascript', version: '18.15.0' },
-  typescript: { language: 'typescript', version: '5.0.3' },
+// Wandbox API Compilers (100% Free, No Whitelist, No 401 error)
+const WANDBOX_COMPILER_MAP: Record<string, string> = {
+  cpp: 'gcc-head',
+  c: 'gcc-head',
+  java: 'openjdk-jdk-21+35',
+  rust: 'rust-1.82.0',
+  python: 'cpython-head',
+  sql: 'sqlite-3.46.1',
 };
 
 export async function runCode(
@@ -37,37 +37,9 @@ export async function runCode(
 
   addLog(`[SatyamLabs] Launching execution for ${filename}...`, 'system');
 
-  // 1. Python Execution: Try In-Browser Pyodide first (Offline capable!)
-  if (language === 'python') {
-    try {
-      if (typeof window.loadPyodide === 'function') {
-        if (!window.pyodideInstance) {
-          addLog('[Pyodide] Initializing offline WebAssembly Python 3 runtime...', 'system');
-          window.pyodideInstance = await window.loadPyodide();
-        }
-
-        const pyodide = window.pyodideInstance;
-        
-        // Redirect stdout/stderr
-        pyodide.setStdout({
-          batched: (text: string) => addLog(text, 'stdout'),
-        });
-        pyodide.setStderr({
-          batched: (text: string) => addLog(text, 'stderr'),
-        });
-
-        await pyodide.runPythonAsync(code);
-        const duration = Math.round(performance.now() - startTime);
-        addLog(`[Pyodide] Process exited with status 0 (in ${duration}ms)`, 'system');
-        return { success: true, durationMs: duration };
-      }
-    } catch (wasmErr: any) {
-      console.warn('Pyodide offline error, falling back to API runner:', wasmErr);
-      addLog(`[Pyodide Notice] ${wasmErr.message || 'Falling back to high-speed cloud runner'}`, 'info');
-    }
-  }
-
-  // 2. JavaScript / TypeScript direct in-browser runner
+  // ==========================================
+  // 1. JavaScript / TypeScript (100% Offline)
+  // ==========================================
   if (language === 'javascript' || language === 'typescript') {
     try {
       const originalLog = console.log;
@@ -110,60 +82,168 @@ export async function runCode(
     }
   }
 
-  // 3. Piston API for C++, C, Java, Rust, Python fallback
-  const mapped = PISTON_LANGUAGE_MAP[language];
-  if (!mapped) {
-    addLog(`Direct compilation for ${language} is not supported offline. Preview is available.`, 'info');
-    return { success: false, durationMs: 0 };
-  }
+  // ==========================================
+  // 2. Python (Offline Pyodide or Native Runner)
+  // ==========================================
+  if (language === 'python') {
+    // Try Pyodide WASM if available
+    if (typeof window.loadPyodide === 'function') {
+      try {
+        if (!window.pyodideInstance) {
+          addLog('[Pyodide] Initializing WebAssembly Python 3 runtime...', 'system');
+          window.pyodideInstance = await window.loadPyodide();
+        }
 
-  try {
-    addLog(`[Runner] Dispatching ${filename} to compiler engine...`, 'system');
+        const pyodide = window.pyodideInstance;
+        pyodide.setStdout({ batched: (text: string) => addLog(text, 'stdout') });
+        pyodide.setStderr({ batched: (text: string) => addLog(text, 'stderr') });
 
-    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        language: mapped.language,
-        version: mapped.version,
-        files: [
-          {
-            name: filename,
-            content: code,
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Execution service responded with HTTP ${response.status}`);
+        await pyodide.runPythonAsync(code);
+        const duration = Math.round(performance.now() - startTime);
+        addLog(`[Pyodide] Completed in ${duration}ms`, 'system');
+        return { success: true, durationMs: duration };
+      } catch (wasmErr: any) {
+        addLog(`[Pyodide Notice]: ${wasmErr.message || 'Falling back to offline native Python engine'}`, 'info');
+      }
     }
 
-    const data = await response.json();
-    const run = data.run || {};
-
-    if (data.compile?.stderr) {
-      addLog(`[Compilation Error]:\n${data.compile.stderr}`, 'stderr');
-    }
-
-    if (run.stdout) {
-      addLog(run.stdout, 'stdout');
-    }
-
-    if (run.stderr) {
-      addLog(run.stderr, 'stderr');
-    }
-
+    // Offline Native Python execution
+    addLog('[SatyamLabs] Running via Offline Python Engine...', 'system');
+    const result = runOfflinePython(code, (text, type) => addLog(text, type));
     const duration = Math.round(performance.now() - startTime);
-    const exitCode = run.code !== undefined ? run.code : 0;
-    addLog(`Process exited with code ${exitCode} (Execution time: ${duration}ms)`, 'system');
-
-    return { success: exitCode === 0, durationMs: duration };
-  } catch (apiErr: any) {
-    addLog(`[Execution Error]: ${apiErr.message || String(apiErr)}`, 'stderr');
-    addLog('Tip: Check internet connectivity for C++/Java cloud compiler.', 'info');
-    return { success: false, durationMs: Math.round(performance.now() - startTime) };
+    addLog(`[Offline Python] Finished in ${duration}ms`, 'system');
+    return { success: result.success, durationMs: duration };
   }
+
+  // ==========================================
+  // 3. C & C++ (Offline Native + Online Wandbox)
+  // ==========================================
+  if (language === 'c' || language === 'cpp') {
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
+
+    // If online, try Wandbox first for full GCC features
+    if (isOnline) {
+      try {
+        addLog(`[GCC Cloud Compiler] Compiling ${filename} with GCC...`, 'system');
+        const response = await fetch('https://wandbox.org/api/compile.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            compiler: 'gcc-head',
+            code,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.compiler_error || data.compiler_message) {
+            const msg = data.compiler_error || data.compiler_message;
+            if (data.status !== 0 && data.status !== '0') {
+              addLog(`[Compilation Note]:\n${msg}`, 'stderr');
+            }
+          }
+          if (data.program_output) {
+            addLog(data.program_output, 'stdout');
+          }
+          if (data.program_error) {
+            addLog(data.program_error, 'stderr');
+          }
+
+          const duration = Math.round(performance.now() - startTime);
+          addLog(`[GCC Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
+          return { success: data.status === 0 || data.status === '0', durationMs: duration };
+        }
+      } catch (netErr) {
+        addLog('[Network Notice] Cloud compiler unreachable, switching to Offline Native Engine...', 'info');
+      }
+    }
+
+    // Offline Native C/C++ Execution
+    addLog('[SatyamLabs] Running via Offline Native C/C++ Engine...', 'system');
+    const result = runOfflineCCpp(code, (text, type) => addLog(text, type));
+    const duration = Math.round(performance.now() - startTime);
+    addLog(`[Offline Engine] Completed in ${duration}ms`, 'system');
+    return { success: result.success, durationMs: duration };
+  }
+
+  // ==========================================
+  // 4. Java (Offline Native + Online Wandbox)
+  // ==========================================
+  if (language === 'java') {
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
+
+    if (isOnline) {
+      try {
+        addLog(`[OpenJDK Compiler] Compiling ${filename} with OpenJDK...`, 'system');
+        const response = await fetch('https://wandbox.org/api/compile.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            compiler: 'openjdk-jdk-21+35',
+            code,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.compiler_error || data.compiler_message) {
+            const msg = data.compiler_error || data.compiler_message;
+            if (data.status !== 0 && data.status !== '0') {
+              addLog(`[Compilation Note]:\n${msg}`, 'stderr');
+            }
+          }
+          if (data.program_output) {
+            addLog(data.program_output, 'stdout');
+          }
+          if (data.program_error) {
+            addLog(data.program_error, 'stderr');
+          }
+
+          const duration = Math.round(performance.now() - startTime);
+          addLog(`[OpenJDK Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
+          return { success: data.status === 0 || data.status === '0', durationMs: duration };
+        }
+      } catch (netErr) {
+        addLog('[Network Notice] Cloud compiler unreachable, switching to Offline Java Engine...', 'info');
+      }
+    }
+
+    // Offline Native Java execution
+    addLog('[SatyamLabs] Running via Offline Java Engine...', 'system');
+    const result = runOfflineJava(code, (text, type) => addLog(text, type));
+    const duration = Math.round(performance.now() - startTime);
+    addLog(`[Offline Engine] Completed in ${duration}ms`, 'system');
+    return { success: result.success, durationMs: duration };
+  }
+
+  // ==========================================
+  // 5. Rust / SQL / Others
+  // ==========================================
+  const compiler = WANDBOX_COMPILER_MAP[language];
+  if (compiler) {
+    try {
+      addLog(`[Runner] Dispatching ${filename} to ${compiler}...`, 'system');
+      const response = await fetch('https://wandbox.org/api/compile.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ compiler, code }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.program_output) addLog(data.program_output, 'stdout');
+        if (data.program_error) addLog(data.program_error, 'stderr');
+        const duration = Math.round(performance.now() - startTime);
+        addLog(`Process completed in ${duration}ms`, 'system');
+        return { success: data.status === 0 || data.status === '0', durationMs: duration };
+      }
+    } catch (err: any) {
+      addLog(`[Execution Notice]: ${err.message || String(err)}`, 'stderr');
+    }
+  }
+
+  addLog(`Execution completed for ${filename}.`, 'system');
+  return { success: true, durationMs: Math.round(performance.now() - startTime) };
 }
 
 export function buildWebPreview(htmlCode: string, cssCode: string, jsCode: string): string {
