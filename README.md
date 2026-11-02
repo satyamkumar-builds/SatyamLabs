@@ -79,7 +79,7 @@ You can install SatyamLabs directly on your Android phone:
 
 ### 1. Clone & Install
 ```bash
-git clone https://github.com/your-username/SatyamLabs.git
+git clone https://github.com/satyamkumar-builds/SatyamLabs.git
 cd SatyamLabs
 npm install
 ```

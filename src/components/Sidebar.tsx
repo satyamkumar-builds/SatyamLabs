@@ -215,7 +215,7 @@ export const Sidebar = ({
               Use this IDE on your Android phone with zero latency and full offline support.
             </p>
             <a
-              href="https://github.com/morluto/rea/releases"
+              href="https://github.com/satyamkumar-builds/SatyamLabs/releases"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center w-full py-1.5 px-3 bg-[#1f6feb] hover:bg-[#388bfd] text-white text-xs font-medium rounded-lg transition-colors"

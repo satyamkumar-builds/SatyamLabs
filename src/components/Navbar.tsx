@@ -161,7 +161,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
 
         <a
-          href="https://github.com/morluto/rea"
+          href="https://github.com/satyamkumar-builds/SatyamLabs"
           target="_blank"
           rel="noopener noreferrer"
           className="hidden sm:flex p-1.5 hover:bg-[#2a2d2e] rounded text-[#cccccc] transition-colors"
