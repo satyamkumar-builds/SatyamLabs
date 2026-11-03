@@ -204,12 +204,15 @@ export async function runCode(
     if (isOnline) {
       try {
         addLog(`[OpenJDK Compiler] Compiling ${filename} with OpenJDK...`, 'system');
+        // Wandbox compiles inside prog.java. In Java, public classes must match the file name.
+        // Converting 'public class' -> 'class' allows any class name (Main, Solution, etc.) to compile seamlessly.
+        const preparedJavaCode = code.replace(/\bpublic\s+class\b/g, 'class');
         const response = await fetch('https://wandbox.org/api/compile.json', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             compiler: 'openjdk-jdk-21+35',
-            code,
+            code: preparedJavaCode,
             stdin: stdin || '',
           }),
         });
