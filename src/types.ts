@@ -22,7 +22,14 @@ export interface FileItem {
   children?: FileItem[];
 }
 
-export type ThemeId = 'dark-plus' | 'one-dark' | 'dracula' | 'monokai' | 'github-dark' | 'light';
+export type ThemeId = 
+  | 'dark-plus' 
+  | 'one-dark' 
+  | 'dracula' 
+  | 'monokai' 
+  | 'github-dark' 
+  | 'cyberpunk' 
+  | 'light';
 
 export interface TabItem {
   fileId: string;
@@ -39,6 +46,7 @@ export interface ExecutionLog {
 export interface EditorSettings {
   fontSize: number;
   theme: ThemeId;
+  fontFamily: string;
   tabSize: number;
   wordWrap: boolean;
   lineNumbers: boolean;

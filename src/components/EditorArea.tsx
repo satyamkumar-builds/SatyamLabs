@@ -1,12 +1,13 @@
 import { useRef, useMemo, useImperativeHandle, forwardRef, useState } from 'react';
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror';
-import { oneDark } from '@codemirror/theme-one-dark';
 import { undo, redo } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
-import { X, ChevronRight, Keyboard, Command } from 'lucide-react';
+import { X, ChevronRight, Sparkles, Plus } from 'lucide-react';
 import type { FileItem, TabItem, EditorSettings } from '../types';
 import { getFileIcon } from '../utils/fileIcons';
 import { getCodeMirrorExtension } from '../utils/codeMirrorHelper';
+import { getCodeMirrorTheme, THEME_CONFIGS } from '../utils/themeHelper';
+import { getLanguageSnippets, getBoilerplateForFile } from '../utils/snippetHelper';
 
 export interface EditorAreaHandle {
   insertText: (text: string) => void;
@@ -29,6 +30,8 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
     const cmRef = useRef<ReactCodeMirrorRef>(null);
     const [cursorLine, setCursorLine] = useState(1);
     const [cursorCol, setCursorCol] = useState(1);
+
+    const themeConf = THEME_CONFIGS[settings.theme] || THEME_CONFIGS['dark-plus'];
 
     // Expose methods for the Mobile Keyboard Bar
     useImperativeHandle(ref, () => ({
@@ -59,10 +62,16 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
       },
     }));
 
-    // Resolve extensions for active language
+    // Language syntax extensions
     const languageExtensions = useMemo(() => {
       if (!activeFile) return [];
       return getCodeMirrorExtension(activeFile.language);
+    }, [activeFile?.language]);
+
+    // Intelligent Snippets extension
+    const snippetExtension = useMemo(() => {
+      if (!activeFile) return [];
+      return [getLanguageSnippets(activeFile.language)];
     }, [activeFile?.language]);
 
     // Cursor position tracker extension
@@ -79,112 +88,95 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
       []
     );
 
-    // CodeMirror theme styling - exact VS Code Dark+
-    const customTheme = useMemo(() => {
-      return EditorView.theme({
-        '&': {
-          height: '100%',
-          backgroundColor: '#1e1e1e',
-        },
-        '.cm-content': {
-          fontFamily: "'Consolas', 'Fira Code', 'JetBrains Mono', 'Menlo', monospace",
-          fontSize: `${settings.fontSize}px`,
-          lineHeight: '1.6',
-          caretColor: '#aeafad',
-          padding: '0 0 0 4px',
-        },
-        '.cm-cursor': {
-          borderLeftColor: '#aeafad',
-          borderLeftWidth: '2px',
-        },
-        '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-          backgroundColor: '#264f78 !important',
-        },
-        '.cm-gutters': {
-          backgroundColor: '#1e1e1e',
-          color: '#858585',
-          borderRight: 'none',
-          fontSize: `${Math.max(settings.fontSize - 1, 11)}px`,
-          minWidth: '48px',
-        },
-        '.cm-activeLineGutter': {
-          backgroundColor: 'transparent',
-          color: '#c6c6c6',
-        },
-        '.cm-activeLine': {
-          backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        },
-        '.cm-matchingBracket': {
-          backgroundColor: 'rgba(0, 100, 0, 0.2)',
-          outline: '1px solid #888',
-        },
-        '.cm-foldGutter': {
-          width: '12px',
-        },
-      });
-    }, [settings.fontSize, settings.theme]);
+    // Dynamic theme extensions
+    const dynamicThemeExtensions = useMemo(() => {
+      return getCodeMirrorTheme(
+        settings.theme,
+        settings.fontSize,
+        settings.fontFamily || 'Consolas'
+      );
+    }, [settings.theme, settings.fontSize, settings.fontFamily]);
 
     // Line/char counts
     const lineCount = activeFile?.content ? activeFile.content.split('\n').length : 0;
+    const isFileEmpty = !activeFile?.content || activeFile.content.trim().length === 0;
+
+    // Insert starter boilerplate for empty file
+    const handleInsertBoilerplate = () => {
+      if (!activeFile) return;
+      const boilerplate = getBoilerplateForFile(activeFile.name);
+      if (boilerplate) {
+        onChangeContent(activeFile.id, boilerplate);
+      }
+    };
 
     // Welcome screen when no file is active
     if (!activeFile) {
       return (
-        <div className="flex-1 flex flex-col items-center justify-center bg-[#1e1e1e] text-[#858585] p-8 text-center select-none">
-          {/* VS Code style welcome */}
-          <div className="max-w-sm">
-            <h1 className="text-2xl font-light text-[#cccccc] mb-6">SatyamLabs IDE</h1>
+        <div 
+          className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none font-sans"
+          style={{ backgroundColor: themeConf.bg, color: themeConf.text }}
+        >
+          <div className="max-w-md w-full">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <img src="./logo.svg" alt="SatyamLabs" className="w-10 h-10" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+                SatyamLabs HyperIDE
+              </h1>
+            </div>
+            <p className="text-xs mb-8" style={{ color: themeConf.textMuted }}>
+              Hyper-performance Mobile & Web Coding Environment · Built by Satyam Kumar
+            </p>
 
-            <div className="text-left mb-6">
-              <h2 className="text-[13px] font-semibold text-[#cccccc] mb-3">Start</h2>
-              <div className="space-y-1.5">
-                {files.filter((f) => !f.isFolder).slice(0, 3).map((file) => (
+            <div className="text-left mb-6 p-4 rounded-xl border" style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}>
+              <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: themeConf.accent }}>
+                Quick Start
+              </h2>
+              <div className="space-y-2">
+                {files.filter((f) => !f.isFolder).slice(0, 4).map((file) => (
                   <button
                     key={file.id}
                     onClick={() => onSelectTab(file.id)}
-                    className="flex items-center gap-2 text-[13px] text-[#3794ff] hover:underline w-full text-left py-0.5"
+                    className="flex items-center justify-between w-full p-2 rounded-lg text-xs transition-colors hover:brightness-125"
+                    style={{ backgroundColor: themeConf.bg, color: themeConf.text }}
                   >
-                    {getFileIcon(file.name, false)}
-                    Open {file.name}
+                    <span className="flex items-center gap-2 font-mono">
+                      {getFileIcon(file.name, false)}
+                      {file.name}
+                    </span>
+                    <span className="text-[10px] uppercase font-mono" style={{ color: themeConf.textMuted }}>
+                      {file.language}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="text-left mb-6">
-              <h2 className="text-[13px] font-semibold text-[#cccccc] mb-3">Keyboard Shortcuts</h2>
-              <div className="space-y-1.5 text-[13px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[#cccccc] flex items-center gap-1.5">
-                    <Command className="w-3 h-3" /> Run Code
-                  </span>
-                  <kbd className="text-[11px] px-1.5 py-0.5 bg-[#2d2d2d] rounded border border-[#3c3c3c] text-[#cccccc]">
-                    Ctrl+Enter
-                  </kbd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#cccccc] flex items-center gap-1.5">
-                    <Keyboard className="w-3 h-3" /> Toggle Terminal
-                  </span>
-                  <kbd className="text-[11px] px-1.5 py-0.5 bg-[#2d2d2d] rounded border border-[#3c3c3c] text-[#cccccc]">
-                    Ctrl+`
-                  </kbd>
-                </div>
+            <div className="grid grid-cols-2 gap-3 text-left">
+              <div className="p-3 rounded-xl border text-xs" style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}>
+                <span className="font-semibold block mb-1" style={{ color: themeConf.accent }}>Run Code</span>
+                <span style={{ color: themeConf.textMuted }}>Ctrl+Enter or Run button</span>
+              </div>
+              <div className="p-3 rounded-xl border text-xs" style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}>
+                <span className="font-semibold block mb-1" style={{ color: themeConf.accent }}>Command Palette</span>
+                <span style={{ color: themeConf.textMuted }}>Ctrl+P or F1 key</span>
               </div>
             </div>
-
-            <p className="text-[11px] text-[#666666]">
-              v2.0.0 · VS Code Experience on Mobile & Web
-            </p>
           </div>
         </div>
       );
     }
 
     return (
-      <div className="flex-1 flex flex-col h-full bg-[#1e1e1e] overflow-hidden">
+      <div 
+        className="flex-1 flex flex-col h-full overflow-hidden font-sans"
+        style={{ backgroundColor: themeConf.bg, color: themeConf.text }}
+      >
         {/* ─── Tab Bar ─── */}
-        <div className="flex items-center bg-[#181818] overflow-x-auto select-none no-scrollbar shrink-0">
+        <div 
+          className="flex items-center overflow-x-auto select-none no-scrollbar shrink-0 border-b"
+          style={{ backgroundColor: themeConf.activityBg, borderColor: themeConf.border }}
+        >
           {tabs.map((tab) => {
             const file = files.find((f) => f.id === tab.fileId);
             if (!file) return null;
@@ -194,15 +186,18 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
               <div
                 key={tab.fileId}
                 onClick={() => onSelectTab(file.id)}
-                className={`group flex items-center gap-1.5 pl-3 pr-2 h-[35px] text-[13px] cursor-pointer shrink-0 transition-colors border-r border-[#252526] ${
-                  isActive
-                    ? 'bg-[#1e1e1e] text-white'
-                    : 'bg-[#2d2d2d] text-[#969696] hover:bg-[#1e1e1e]/60'
+                className={`group flex items-center gap-2 pl-3 pr-2 h-9 text-xs cursor-pointer shrink-0 transition-colors border-r ${
+                  isActive ? 'font-medium' : 'hover:brightness-110'
                 }`}
-                style={isActive ? { borderTop: '1px solid #007acc', marginTop: '-1px' } : undefined}
+                style={{
+                  backgroundColor: isActive ? themeConf.tabActiveBg : themeConf.tabBg,
+                  color: isActive ? themeConf.text : themeConf.textMuted,
+                  borderColor: themeConf.border,
+                  borderTop: isActive ? `2px solid ${themeConf.accent}` : 'none',
+                }}
               >
                 {getFileIcon(file.name, false)}
-                <span className="text-[13px]">{file.name}</span>
+                <span className="text-xs font-mono">{file.name}</span>
 
                 <button
                   onClick={(e) => {
@@ -211,10 +206,10 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
                   }}
                   className={`ml-1 p-0.5 rounded transition-colors ${
                     isActive
-                      ? 'hover:bg-[#313131] text-[#cccccc]'
-                      : 'opacity-0 group-hover:opacity-100 hover:bg-[#313131] text-[#858585]'
+                      ? 'opacity-80 hover:opacity-100 hover:bg-white/10'
+                      : 'opacity-0 group-hover:opacity-100 hover:bg-white/10'
                   }`}
-                  title="Close"
+                  title="Close Tab"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -223,26 +218,42 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
           })}
         </div>
 
-        {/* ─── Breadcrumb Bar ─── */}
-        <div className="h-[22px] flex items-center px-3 text-[11px] text-[#a9a9a9] bg-[#1e1e1e] border-b border-[#2b2b2b] shrink-0 select-none overflow-hidden">
-          <span className="text-[#cccccc]">SATYAMLABS</span>
-          <ChevronRight className="w-3 h-3 mx-1 text-[#666666] shrink-0" />
-          <span className="flex items-center gap-1">
-            {getFileIcon(activeFile.name, false)}
-            <span className="text-[#cccccc]">{activeFile.name}</span>
-          </span>
+        {/* ─── Breadcrumb Navigation Bar ─── */}
+        <div 
+          className="h-6 flex items-center justify-between px-3 text-[11px] border-b shrink-0 select-none overflow-hidden"
+          style={{ 
+            backgroundColor: themeConf.bg, 
+            borderColor: themeConf.border, 
+            color: themeConf.textMuted 
+          }}
+        >
+          <div className="flex items-center gap-1 truncate">
+            <span>SatyamLabs</span>
+            <ChevronRight className="w-3 h-3 opacity-50 shrink-0" />
+            <span className="flex items-center gap-1 font-mono text-xs" style={{ color: themeConf.text }}>
+              {getFileIcon(activeFile.name, false)}
+              {activeFile.name}
+            </span>
+          </div>
+
+          {/* Quick Boilerplate Hint */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] hidden sm:inline" style={{ color: themeConf.accent }}>
+              💡 Type <kbd className="px-1 py-0.2 rounded bg-white/10 font-mono">!</kbd> or <kbd className="px-1 py-0.2 rounded bg-white/10 font-mono">main</kbd> for snippets
+            </span>
+          </div>
         </div>
 
-        {/* ─── Code Editor ─── */}
+        {/* ─── Code Editor with Autocomplete & Snippets ─── */}
         <div className="flex-1 overflow-hidden relative">
           <CodeMirror
             ref={cmRef}
             value={activeFile.content}
             height="100%"
-            theme={oneDark}
             extensions={[
               ...languageExtensions,
-              customTheme,
+              ...snippetExtension,
+              ...dynamicThemeExtensions,
               cursorExtension,
               ...(settings.wordWrap ? [EditorView.lineWrapping] : []),
             ]}
@@ -275,27 +286,48 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
             }}
             className="h-full"
           />
+
+          {/* 1-Tap Boilerplate Card if File is Empty */}
+          {isFileEmpty && (
+            <div className="absolute top-6 left-16 z-20 bg-black/60 backdrop-blur-md border border-white/10 p-3 rounded-xl shadow-xl max-w-xs animate-in fade-in duration-200">
+              <div className="flex items-center gap-1.5 text-xs font-semibold mb-1" style={{ color: themeConf.accent }}>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Empty File Detected</span>
+              </div>
+              <p className="text-[11px] mb-2.5 opacity-80" style={{ color: themeConf.text }}>
+                Start writing code, type <code className="font-mono text-cyan-400">!</code> or tap below to insert the starter boilerplate:
+              </p>
+              <button
+                onClick={handleInsertBoilerplate}
+                className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-white transition-transform active:scale-95 shadow-md flex items-center justify-center gap-1.5"
+                style={{ backgroundColor: themeConf.accent }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Insert {activeFile.language.toUpperCase()} Boilerplate</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* ─── VS Code Status Bar ─── */}
-        <footer className="h-[22px] bg-[#007acc] text-white text-[12px] px-2.5 flex items-center justify-between select-none shrink-0 font-sans">
+        {/* ─── SatyamLabs Status Bar ─── */}
+        <footer 
+          className="h-5 text-white text-[11px] px-3 flex items-center justify-between select-none shrink-0 font-sans"
+          style={{ backgroundColor: themeConf.statusBg }}
+        >
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M14.5 2H9l-1 2H3.5L2 6h4l1-2h2l-1 2H6L4.5 8h4l1-2h2l-1 2H9L7.5 10h4l1-2h2l-1 2H12l-1.5 2H14l2-2V4l-1.5-2z" />
-              </svg>
-              main
+            <span className="flex items-center gap-1 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              SatyamLabs
             </span>
+            <span className="hidden sm:inline opacity-90">main</span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span>
-              Ln {cursorLine}, Col {cursorCol}
-            </span>
+          <div className="flex items-center gap-3 font-mono">
+            <span>Ln {cursorLine}, Col {cursorCol}</span>
             <span className="hidden sm:inline">Spaces: {settings.tabSize}</span>
             <span className="hidden sm:inline">UTF-8</span>
-            <span className="uppercase font-medium">{activeFile.language}</span>
-            <span className="hidden sm:inline text-[11px] opacity-75">{lineCount} lines</span>
+            <span className="uppercase font-semibold">{activeFile.language}</span>
+            <span className="hidden sm:inline opacity-75">{lineCount} lines</span>
           </div>
         </footer>
       </div>

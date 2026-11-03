@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   FolderPlus,
   FilePlus,
@@ -8,7 +8,8 @@ import {
   ChevronDown,
   Search,
   Smartphone,
-  RefreshCw,
+  Upload,
+  FolderUp,
 } from 'lucide-react';
 import type { FileItem, ActivePanel } from '../types';
 import { getFileIcon } from '../utils/fileIcons';
@@ -24,6 +25,7 @@ interface SidebarProps {
   onDeleteFile: (fileId: string) => void;
   onRenameFile: (fileId: string, newName: string) => void;
   onLoadTemplate: (template: ProjectTemplate) => void;
+  onImportFiles: (importedFiles: { name: string; content: string }[]) => void;
   activePanel: ActivePanel;
   setActivePanel: (panel: ActivePanel) => void;
 }
@@ -37,6 +39,7 @@ export const Sidebar = ({
   onDeleteFile,
   onRenameFile,
   onLoadTemplate,
+  onImportFiles,
   activePanel,
 }: SidebarProps) => {
   const [isCreatingFile, setIsCreatingFile] = useState(false);
@@ -46,6 +49,10 @@ export const Sidebar = ({
   const [renameValue, setRenameValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isProjectOpen, setIsProjectOpen] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -66,7 +73,53 @@ export const Sidebar = ({
     setRenamingId(null);
   };
 
-  // Panel title
+  // Handle uploaded files
+  const handleFilesChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const imported: { name: string; content: string }[] = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const f = fileList[i];
+      try {
+        const text = await f.text();
+        imported.push({ name: f.name, content: text });
+      } catch (err) {}
+    }
+    if (imported.length > 0) {
+      onImportFiles(imported);
+    }
+    e.target.value = '';
+  };
+
+  // Drag & drop files
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+
+    const imported: { name: string; content: string }[] = [];
+    for (let i = 0; i < e.dataTransfer.files.length; i++) {
+      const f = e.dataTransfer.files[i];
+      try {
+        const text = await f.text();
+        imported.push({ name: f.name, content: text });
+      } catch (err) {}
+    }
+    if (imported.length > 0) {
+      onImportFiles(imported);
+    }
+  };
+
   const panelTitle = activePanel === 'explorer'
     ? 'EXPLORER'
     : activePanel === 'search'
@@ -77,7 +130,6 @@ export const Sidebar = ({
     ? 'SOURCE CONTROL'
     : 'EXPLORER';
 
-  // Filtered files for search
   const searchResults = searchQuery.trim()
     ? files.filter(
         (f) =>
@@ -88,66 +140,116 @@ export const Sidebar = ({
     : [];
 
   return (
-    <aside className="w-64 bg-[#252526] flex flex-col h-full select-none shrink-0 z-20 overflow-hidden">
-      {/* Panel Title */}
-      <div className="h-9 flex items-center px-5 text-[11px] font-semibold uppercase tracking-widest text-[#bbbbbb] shrink-0">
-        {panelTitle}
+    <aside 
+      className={`w-64 bg-[#252526] flex flex-col h-full select-none shrink-0 z-20 overflow-hidden relative transition-colors ${
+        isDragging ? 'bg-[#1a2333] border-2 border-dashed border-[#58a6ff]' : ''
+      }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Hidden file & folder upload inputs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        onChange={handleFilesChosen}
+        className="hidden"
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        multiple
+        {...({ webkitdirectory: '', directory: '' } as any)}
+        onChange={handleFilesChosen}
+        className="hidden"
+      />
+
+      {/* Drag Overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 bg-blue-900/40 backdrop-blur-xs flex flex-col items-center justify-center text-white z-30 pointer-events-none p-4 text-center">
+          <Upload className="w-8 h-8 mb-2 animate-bounce text-cyan-300" />
+          <span className="font-semibold text-xs">Drop files to import into SatyamLabs</span>
+        </div>
+      )}
+
+      {/* Panel Header */}
+      <div className="h-9 flex items-center justify-between px-4 text-[11px] font-semibold uppercase tracking-widest text-[#bbbbbb] shrink-0 border-b border-[#2b2b2b]">
+        <span>{panelTitle}</span>
+        {activePanel === 'explorer' && (
+          <div className="flex items-center gap-1 text-[#858585]">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="p-1 hover:text-white hover:bg-[#333333] rounded transition-colors"
+              title="Import / Upload Files"
+            >
+              <Upload className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => folderInputRef.current?.click()}
+              className="p-1 hover:text-white hover:bg-[#333333] rounded transition-colors"
+              title="Import / Upload Folder"
+            >
+              <FolderUp className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ─── EXPLORER ─── */}
       {activePanel === 'explorer' && (
         <div className="flex-1 overflow-y-auto flex flex-col text-[13px]">
-          {/* Collapsible Project Header */}
-          <button
-            onClick={() => setIsProjectOpen((p) => !p)}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[#cccccc] hover:bg-[#2a2d2e] w-full text-left"
-          >
-            {isProjectOpen ? (
-              <ChevronDown className="w-4 h-4 shrink-0" />
-            ) : (
-              <ChevronRight className="w-4 h-4 shrink-0" />
-            )}
-            <span>SATYAMLABS</span>
+          {/* Collapsible Workspace Section */}
+          <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#cccccc] hover:bg-[#2a2d2e] w-full text-left">
+            <button
+              onClick={() => setIsProjectOpen((p) => !p)}
+              className="flex items-center gap-1 flex-1 min-w-0"
+            >
+              {isProjectOpen ? (
+                <ChevronDown className="w-4 h-4 shrink-0" />
+              ) : (
+                <ChevronRight className="w-4 h-4 shrink-0" />
+              )}
+              <span className="truncate">WORKSPACE</span>
+            </button>
 
-            {/* Action buttons (visible on hover) */}
-            <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+            {/* Quick action buttons */}
+            <div className="flex items-center gap-0.5 shrink-0">
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   setIsCreatingFile(true);
                   setIsCreatingFolder(false);
                 }}
-                className="p-0.5 hover:bg-[#3c3c3c] rounded text-[#cccccc]"
+                className="p-1 hover:bg-[#3c3c3c] rounded text-[#cccccc]"
                 title="New File"
               >
-                <FilePlus className="w-4 h-4" />
+                <FilePlus className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   setIsCreatingFolder(true);
                   setIsCreatingFile(false);
                 }}
-                className="p-0.5 hover:bg-[#3c3c3c] rounded text-[#cccccc]"
+                className="p-1 hover:bg-[#3c3c3c] rounded text-[#cccccc]"
                 title="New Folder"
               >
-                <FolderPlus className="w-4 h-4" />
+                <FolderPlus className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={(e) => e.stopPropagation()}
-                className="p-0.5 hover:bg-[#3c3c3c] rounded text-[#cccccc]"
-                title="Refresh"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-1 hover:bg-[#3c3c3c] rounded text-[#cccccc]"
+                title="Upload Files"
               >
-                <RefreshCw className="w-4 h-4" />
+                <Upload className="w-3.5 h-3.5" />
               </button>
             </div>
-          </button>
+          </div>
 
           {isProjectOpen && (
             <>
-              {/* New file/folder input */}
+              {/* New file/folder input form */}
               {(isCreatingFile || isCreatingFolder) && (
-                <form onSubmit={handleCreateSubmit} className="px-6 py-1">
+                <form onSubmit={handleCreateSubmit} className="px-4 py-1">
                   <input
                     type="text"
                     autoFocus
@@ -160,31 +262,31 @@ export const Sidebar = ({
                         setIsCreatingFolder(false);
                       }
                     }}
-                    className="w-full bg-[#3c3c3c] text-[#cccccc] text-[13px] px-1.5 py-0.5 outline-none border border-[#007acc] rounded-sm"
+                    className="w-full bg-[#3c3c3c] text-white text-[12px] px-2 py-0.5 outline-none border border-[#007acc] rounded"
                   />
                 </form>
               )}
 
-              {/* File Tree */}
-              <div className="flex-1">
+              {/* File Tree List */}
+              <div className="flex-1 py-0.5">
                 {files.map((file) => {
                   const isActive = file.id === activeFileId;
                   const isRenaming = renamingId === file.id;
-                  const indent = file.isFolder ? 'pl-4' : 'pl-6';
+                  const indent = file.isFolder ? 'pl-3' : 'pl-5';
 
                   return (
                     <div
                       key={file.id}
                       onClick={() => !file.isFolder && onSelectFile(file.id)}
-                      className={`group flex items-center justify-between ${indent} pr-2 h-[22px] cursor-pointer transition-colors ${
+                      className={`group flex items-center justify-between ${indent} pr-2 h-[26px] cursor-pointer transition-colors ${
                         isActive
-                          ? 'bg-[#37373d] text-white'
+                          ? 'bg-[#37373d] text-white font-medium'
                           : 'text-[#cccccc] hover:bg-[#2a2d2e]'
                       }`}
                     >
                       <div className="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
                         {file.isFolder && (
-                          <ChevronRight className="w-3 h-3 shrink-0 text-[#cccccc]" />
+                          <ChevronRight className="w-3 h-3 shrink-0 text-[#858585]" />
                         )}
                         {getFileIcon(file.name, file.isFolder)}
                         {isRenaming ? (
@@ -198,23 +300,23 @@ export const Sidebar = ({
                               value={renameValue}
                               onChange={(e) => setRenameValue(e.target.value)}
                               onBlur={(e) => handleRenameSubmit(e, file.id)}
-                              className="w-full bg-[#3c3c3c] text-white text-[13px] px-1 outline-none border border-[#007acc] rounded-sm"
+                              className="w-full bg-[#3c3c3c] text-white text-[12px] px-1 outline-none border border-[#007acc] rounded-xs"
                             />
                           </form>
                         ) : (
-                          <span className="truncate text-[13px]">{file.name}</span>
+                          <span className="truncate text-xs font-mono">{file.name}</span>
                         )}
                       </div>
 
-                      {/* Hover actions */}
-                      <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
+                      {/* Rename and Delete on hover */}
+                      <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 text-[#858585]">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setRenamingId(file.id);
                             setRenameValue(file.name);
                           }}
-                          className="p-0.5 hover:bg-[#3c3c3c] rounded text-[#858585] hover:text-white"
+                          className="p-1 hover:text-white rounded"
                           title="Rename"
                         >
                           <Edit3 className="w-3 h-3" />
@@ -224,7 +326,7 @@ export const Sidebar = ({
                             e.stopPropagation();
                             onDeleteFile(file.id);
                           }}
-                          className="p-0.5 hover:bg-[#3c3c3c] rounded text-[#858585] hover:text-red-400"
+                          className="p-1 hover:text-red-400 rounded"
                           title="Delete"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -235,48 +337,44 @@ export const Sidebar = ({
                 })}
               </div>
 
-              {/* New File / Folder Quick Actions */}
-              <div className="border-t border-[#2b2b2b] p-2 flex gap-2">
+              {/* Upload Action Bar */}
+              <div className="border-t border-[#2b2b2b] p-2 flex gap-1.5">
                 <button
-                  onClick={() => {
-                    setIsCreatingFile(true);
-                    setIsCreatingFolder(false);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1 py-1 text-[11px] text-[#cccccc] hover:bg-[#2a2d2e] rounded border border-[#3c3c3c] transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1 text-[11px] text-[#cccccc] hover:bg-[#2a2d2e] rounded border border-[#3c3c3c] transition-colors"
+                  title="Upload Files from Computer / Phone"
                 >
-                  <FilePlus className="w-3 h-3" />
-                  File
+                  <Upload className="w-3 h-3 text-[#58a6ff]" />
+                  <span>Upload Files</span>
                 </button>
                 <button
-                  onClick={() => {
-                    setIsCreatingFolder(true);
-                    setIsCreatingFile(false);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1 py-1 text-[11px] text-[#cccccc] hover:bg-[#2a2d2e] rounded border border-[#3c3c3c] transition-colors"
+                  onClick={() => folderInputRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1 text-[11px] text-[#cccccc] hover:bg-[#2a2d2e] rounded border border-[#3c3c3c] transition-colors"
+                  title="Upload Entire Folder"
                 >
-                  <FolderPlus className="w-3 h-3" />
-                  Folder
+                  <FolderUp className="w-3 h-3 text-amber-400" />
+                  <span>Upload Folder</span>
                 </button>
               </div>
             </>
           )}
 
-          {/* Android APK Card */}
-          <div className="p-2 mx-2 mb-2 rounded-lg bg-[#1e1e1e] border border-[#333333]">
-            <div className="flex items-center gap-1.5 text-[#58a6ff] text-[11px] font-semibold mb-1">
+          {/* Android Mobile App Card */}
+          <div className="p-3 mx-2 my-2 rounded-xl bg-gradient-to-br from-[#1b2333] to-[#121824] border border-[#26354f]">
+            <div className="flex items-center gap-1.5 text-[#58a6ff] text-xs font-semibold mb-1">
               <Smartphone className="w-3.5 h-3.5" />
-              <span>Android App Available</span>
+              <span>SatyamLabs Android</span>
             </div>
-            <p className="text-[10px] text-[#8b949e] mb-1.5 leading-relaxed">
-              Install on your phone for full offline support.
+            <p className="text-[11px] text-[#8b949e] mb-2 leading-relaxed">
+              Ultra-fast mobile coding app with zero latency and full offline support.
             </p>
             <a
               href="https://github.com/satyamkumar-builds/SatyamLabs/releases"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center w-full py-1 bg-[#1f6feb] hover:bg-[#388bfd] text-white text-[11px] font-medium rounded transition-colors"
+              className="flex items-center justify-center w-full py-1.5 bg-[#1f6feb] hover:bg-[#388bfd] text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
             >
-              Download APK
+              Get Android APK
             </a>
           </div>
         </div>
@@ -286,32 +384,32 @@ export const Sidebar = ({
       {activePanel === 'search' && (
         <div className="flex-1 p-3 flex flex-col overflow-hidden">
           <div className="relative mb-2">
-            <Search className="w-3.5 h-3.5 absolute left-2 top-[7px] text-[#858585]" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-[8px] text-[#858585]" />
             <input
               type="text"
               autoFocus
-              placeholder="Search"
+              placeholder="Search in files..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#3c3c3c] text-[#cccccc] text-[13px] pl-7 pr-2 py-1 rounded-sm border border-transparent focus:border-[#007acc] outline-none"
+              className="w-full bg-[#1e1e1e] text-white text-xs pl-8 pr-2 py-1.5 rounded border border-[#3c3c3c] focus:border-[#007acc] outline-none font-sans"
             />
           </div>
 
           <div className="flex-1 overflow-y-auto">
             {searchQuery.trim() && (
               <div className="text-[11px] text-[#858585] mb-2 px-1">
-                {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} in files
+                {searchResults.length} match{searchResults.length !== 1 ? 'es' : ''} found
               </div>
             )}
             {searchResults.map((file) => (
               <div
                 key={file.id}
                 onClick={() => onSelectFile(file.id)}
-                className="py-1 px-2 hover:bg-[#2a2d2e] rounded cursor-pointer"
+                className="p-2 hover:bg-[#2a2d2e] rounded cursor-pointer mb-1 border border-transparent hover:border-[#3c3c3c]"
               >
-                <div className="flex items-center gap-1.5 text-[13px] text-white">
+                <div className="flex items-center gap-1.5 text-xs text-white mb-0.5">
                   {getFileIcon(file.name, false)}
-                  <span>{file.name}</span>
+                  <span className="font-mono">{file.name}</span>
                 </div>
                 <div className="text-[11px] text-[#858585] font-mono pl-5 truncate">
                   {file.content.slice(0, 80)}
@@ -324,34 +422,32 @@ export const Sidebar = ({
 
       {/* ─── TEMPLATES ─── */}
       {activePanel === 'templates' && (
-        <div className="flex-1 p-2 overflow-y-auto">
-          <div className="text-[11px] font-semibold text-[#858585] uppercase tracking-wider mb-2 px-1">
+        <div className="flex-1 p-3 overflow-y-auto space-y-2">
+          <div className="text-[11px] font-semibold text-[#858585] uppercase tracking-wider mb-2">
             Starter Projects
           </div>
-          <div className="space-y-1">
-            {STARTER_TEMPLATES.map((tmpl) => (
-              <div
-                key={tmpl.id}
-                onClick={() => onLoadTemplate(tmpl)}
-                className="p-2 hover:bg-[#2a2d2e] rounded cursor-pointer transition-colors border border-transparent hover:border-[#007acc]"
-              >
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[13px] font-medium text-white">{tmpl.name}</span>
-                  <span className="text-[10px] px-1 py-0.5 rounded bg-[#007acc]/20 text-[#58a6ff]">
-                    {tmpl.category}
-                  </span>
-                </div>
-                <p className="text-[11px] text-[#858585] line-clamp-2">{tmpl.description}</p>
+          {STARTER_TEMPLATES.map((tmpl) => (
+            <div
+              key={tmpl.id}
+              onClick={() => onLoadTemplate(tmpl)}
+              className="p-2.5 bg-[#1e1e1e] hover:bg-[#2a2d2e] border border-[#3c3c3c] hover:border-[#007acc] rounded-xl cursor-pointer transition-all"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-white">{tmpl.name}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#007acc]/20 text-[#58a6ff] font-medium">
+                  {tmpl.category}
+                </span>
               </div>
-            ))}
-          </div>
+              <p className="text-[11px] text-[#858585] line-clamp-2">{tmpl.description}</p>
+            </div>
+          ))}
         </div>
       )}
 
       {/* ─── SOURCE CONTROL ─── */}
       {activePanel === 'github' && (
         <div className="flex-1 p-4 flex flex-col items-center justify-center text-center">
-          <div className="w-10 h-10 mb-3 text-[#858585]">
+          <div className="w-10 h-10 mb-3 text-[#58a6ff]">
             <svg className="w-full h-full fill-current" viewBox="0 0 24 24">
               <path
                 fillRule="evenodd"
@@ -360,15 +456,15 @@ export const Sidebar = ({
               />
             </svg>
           </div>
-          <p className="text-[13px] text-[#cccccc] mb-1">SatyamLabs IDE</p>
-          <p className="text-[11px] text-[#858585] mb-3">Open source on GitHub</p>
+          <p className="text-sm font-semibold text-white mb-1">SatyamLabs</p>
+          <p className="text-xs text-[#858585] mb-3">Open-Source HyperIDE</p>
           <a
             href="https://github.com/satyamkumar-builds/SatyamLabs"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-1.5 bg-[#1f6feb] hover:bg-[#388bfd] text-white text-[11px] font-medium rounded transition-colors"
+            className="px-4 py-1.5 bg-[#1f6feb] hover:bg-[#388bfd] text-white text-xs font-semibold rounded-lg transition-colors"
           >
-            View Repository
+            GitHub Repository
           </a>
         </div>
       )}
