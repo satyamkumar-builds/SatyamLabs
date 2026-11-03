@@ -48,32 +48,11 @@ export function App() {
     return STARTER_TEMPLATES[0].files;
   });
 
-  const [activeFileId, setActiveFileId] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_FILES);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const firstNonFolder = parsed.find((f: FileItem) => !f.isFolder);
-          if (firstNonFolder) return firstNonFolder.id;
-        }
-      }
-    } catch (e) {}
-    return STARTER_TEMPLATES[0].files.find(f => !f.isFolder)?.id || '';
-  });
+  // Start with no file opened by default on app/web launch
+  const [activeFileId, setActiveFileId] = useState<string>('');
   
-  const [tabs, setTabs] = useState<TabItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_FILES);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter((f: FileItem) => !f.isFolder).map((f: FileItem) => ({ fileId: f.id }));
-        }
-      }
-    } catch (e) {}
-    return STARTER_TEMPLATES[0].files.filter(f => !f.isFolder).map(f => ({ fileId: f.id }));
-  });
+  // Start with no tabs opened by default — launches directly to SatyamLabs Studio welcome screen
+  const [tabs, setTabs] = useState<TabItem[]>([]);
 
   const [settings, setSettings] = useState<EditorSettings>(() => {
     try {
@@ -167,22 +146,6 @@ export function App() {
     document.documentElement.style.setProperty('--editor-active-line', `${conf.accent}18`);
     document.documentElement.style.setProperty('--editor-font', settings.fontFamily || 'Consolas');
   }, [settings.theme, settings.fontFamily]);
-
-  const isInitialMount = useRef(true);
-
-  // Auto-open first file on initial page load if no tabs are open
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      if (tabs.length === 0 && files.length > 0) {
-        const firstNonFolder = files.find(f => !f.isFolder);
-        if (firstNonFolder) {
-          setActiveFileId(firstNonFolder.id);
-          setTabs([{ fileId: firstNonFolder.id }]);
-        }
-      }
-    }
-  }, []);
 
   // Auto-close sidebar on mobile initial render
   useEffect(() => {
@@ -384,24 +347,28 @@ export function App() {
   };
 
   const handleLoadTemplate = (template: ProjectTemplate) => {
-    if (confirm(`Load "${template.name}"? Current unsaved workspace will be replaced.`)) {
-      setFiles(template.files);
-      const first = template.files.find(f => !f.isFolder);
-      if (first) {
-        setActiveFileId(first.id);
-        setTabs(template.files.filter(f => !f.isFolder).map(f => ({ fileId: f.id })));
-      }
-      setActivePanel('explorer');
-      setIsSidebarOpen(false);
-      setLogs([
-        {
-          id: 'load-' + Date.now(),
-          text: `[Workspace] Loaded "${template.name}" project template.`,
-          type: 'system',
-          timestamp: new Date().toLocaleTimeString(),
-        }
-      ]);
+    // Only prompt for confirmation if user is already editing an active file
+    if (activeFile && !confirm(`Load "${template.name}"? Current workspace will be replaced with ${template.name}.`)) {
+      return;
     }
+    setFiles(template.files);
+    const first = template.files.find(f => !f.isFolder);
+    if (first) {
+      setActiveFileId(first.id);
+      setTabs(template.files.filter(f => !f.isFolder).map(f => ({ fileId: f.id })));
+    }
+    setActivePanel('explorer');
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+    setLogs([
+      {
+        id: 'load-' + Date.now(),
+        text: `[Workspace] Loaded "${template.name}" project template.`,
+        type: 'system',
+        timestamp: new Date().toLocaleTimeString(),
+      }
+    ]);
   };
 
   const handleDownloadZip = async () => {
