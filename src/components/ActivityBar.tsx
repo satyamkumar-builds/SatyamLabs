@@ -40,7 +40,7 @@ export const ActivityBar = ({
   };
 
   return (
-    <div className="w-12 bg-[#181818] border-r border-[#2b2b2b] flex flex-col items-center justify-between py-1 select-none shrink-0 z-30">
+    <div className="hidden md:flex w-12 bg-[#181818] border-r border-[#2b2b2b] flex-col items-center justify-between py-1 select-none shrink-0 z-30">
       {/* Top icons */}
       <div className="flex flex-col items-center gap-0.5">
         {ACTIVITY_ITEMS.map(({ panel, icon: Icon, label }) => {

@@ -9,6 +9,7 @@ import {
   PanelBottom,
   Search,
   Settings as SettingsIcon,
+  LayoutTemplate,
 } from 'lucide-react';
 import type { ViewMode } from '../types';
 
@@ -55,30 +56,33 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header
-      className="bg-[#1f1f1f] border-b border-[#2b2b2b] flex items-center justify-between select-none z-40 shrink-0 h-9 px-2 text-[12px] font-sans relative"
-      style={{
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-        minHeight: 'calc(36px + env(safe-area-inset-top, 0px))',
-      }}
+      className="bg-[#1f1f1f] border-b border-[#2b2b2b] flex items-center justify-between select-none z-40 shrink-0 h-11 md:h-9 px-3 text-[12px] font-sans relative"
     >
-      {/* ─── Left: Brand & VS Code Menus ─── */}
-      <div className="flex items-center gap-1 min-w-0">
-        {/* Mobile Sidebar Hamburger */}
+      {/* ─── Left: Brand & Menus ─── */}
+      <div className="flex items-center gap-1.5 min-w-0">
+        {/* Mobile Sidebar Hamburger (Large touch target) */}
         <button
           onClick={onToggleSidebar}
-          className="md:hidden p-1.5 hover:bg-[#2a2d2e] rounded text-[#cccccc] transition-colors"
-          title="Toggle Explorer"
+          className="md:hidden p-2 hover:bg-[#2a2d2e] active:bg-[#007acc] rounded-lg text-white transition-colors"
+          title="Open Project Explorer"
         >
-          <Menu className="w-4 h-4" />
+          <Menu className="w-5 h-5" />
         </button>
 
-        {/* Brand Icon */}
-        <div className="flex items-center gap-1.5 px-1.5 font-semibold text-white mr-1 shrink-0">
+        {/* Brand Icon & Active File */}
+        <div className="flex items-center gap-1.5 font-semibold text-white shrink-0">
           <img src="./logo.svg" alt="SatyamLabs" className="w-4 h-4" />
           <span className="hidden sm:inline bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent font-bold text-[13px]">
             SatyamLabs
           </span>
         </div>
+
+        {/* Active File Name Badge on Mobile */}
+        {activeFileName && (
+          <div className="flex md:hidden items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[11px] font-mono text-[#cccccc] truncate max-w-[120px]">
+            <span className="truncate">{activeFileName}</span>
+          </div>
+        )}
 
         {/* VS Code Classic Menus (Desktop/Tablet) */}
         <div className="hidden lg:flex items-center text-[#cccccc] relative">
@@ -247,8 +251,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* ─── Center: Command Palette Trigger Search Box ─── */}
-      <div className="flex-1 max-w-xs md:max-w-md mx-2">
+      {/* ─── Center: Command Palette Trigger Search Box (Desktop Only) ─── */}
+      <div className="hidden md:flex flex-1 max-w-xs md:max-w-md mx-2">
         <button
           onClick={onOpenCommandPalette}
           className="w-full h-6 px-2.5 bg-[#2a2d2e] hover:bg-[#323638] text-[#cccccc] text-[11px] rounded flex items-center justify-between border border-[#3c3c3c] transition-colors group"
@@ -268,11 +272,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* ─── Right: Run Button + View Switcher + Panels ─── */}
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* Mobile Starter Templates Button */}
+        <button
+          onClick={onOpenTemplates}
+          className="md:hidden p-2 hover:bg-[#2a2d2e] active:bg-[#007acc] rounded-lg text-cyan-400 transition-colors"
+          title="Starter Templates"
+        >
+          <LayoutTemplate className="w-4 h-4" />
+        </button>
+
         {/* RUN CODE BUTTON */}
         <button
           onClick={onRun}
           disabled={isRunning}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded text-[11px] font-semibold text-white shadow-xs transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 md:py-1 rounded-lg md:rounded text-xs font-semibold text-white shadow-sm transition-all ${
             isRunning
               ? 'bg-amber-600 animate-pulse cursor-wait'
               : 'bg-[#238636] hover:bg-[#2ea043] active:scale-95'
@@ -281,12 +294,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           {isRunning ? (
             <>
-              <Square className="w-3 h-3 fill-current animate-spin" />
-              <span>Running...</span>
+              <Square className="w-3.5 h-3.5 fill-current animate-spin" />
+              <span>Running</span>
             </>
           ) : (
             <>
-              <Play className="w-3 h-3 fill-current" />
+              <Play className="w-3.5 h-3.5 fill-current" />
               <span>Run</span>
             </>
           )}

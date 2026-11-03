@@ -8,6 +8,7 @@ import { getFileIcon } from '../utils/fileIcons';
 import { getCodeMirrorExtension } from '../utils/codeMirrorHelper';
 import { getCodeMirrorTheme, THEME_CONFIGS } from '../utils/themeHelper';
 import { getLanguageSnippets, getBoilerplateForFile } from '../utils/snippetHelper';
+import { STARTER_TEMPLATES, type ProjectTemplate } from '../utils/starterTemplates';
 
 export interface EditorAreaHandle {
   insertText: (text: string) => void;
@@ -23,10 +24,12 @@ interface EditorAreaProps {
   onCloseTab: (fileId: string) => void;
   onChangeContent: (fileId: string, content: string) => void;
   settings: EditorSettings;
+  onLoadTemplate?: (template: ProjectTemplate) => void;
+  onCreateFile?: () => void;
 }
 
 export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
-  ({ files, activeFile, tabs, onSelectTab, onCloseTab, onChangeContent, settings }, ref) => {
+  ({ files, activeFile, tabs, onSelectTab, onCloseTab, onChangeContent, settings, onLoadTemplate, onCreateFile }, ref) => {
     const cmRef = useRef<ReactCodeMirrorRef>(null);
     const [cursorLine, setCursorLine] = useState(1);
     const [cursorCol, setCursorCol] = useState(1);
@@ -114,54 +117,133 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
     if (!activeFile) {
       return (
         <div 
-          className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none font-sans"
+          className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none font-sans overflow-y-auto"
           style={{ backgroundColor: themeConf.bg, color: themeConf.text }}
         >
-          <div className="max-w-md w-full">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <img src="./logo.svg" alt="SatyamLabs" className="w-10 h-10" />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-                SatyamLabs HyperIDE
-              </h1>
+          <div className="max-w-md w-full my-auto py-4">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <img src="./logo.svg" alt="SatyamLabs" className="w-12 h-12" />
+              <div className="text-left">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+                  SatyamLabs Studio
+                </h1>
+                <p className="text-[11px] opacity-75">Mobile & Web Native Coding Environment</p>
+              </div>
             </div>
-            <p className="text-xs mb-8" style={{ color: themeConf.textMuted }}>
-              Hyper-performance Mobile & Web Coding Environment · Built by Satyam Kumar
+
+            <p className="text-xs mb-5 opacity-60">
+              Select an existing file or launch a new programming lab:
             </p>
 
-            <div className="text-left mb-6 p-4 rounded-xl border" style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}>
-              <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: themeConf.accent }}>
-                Quick Start
-              </h2>
-              <div className="space-y-2">
-                {files.filter((f) => !f.isFolder).slice(0, 4).map((file) => (
-                  <button
-                    key={file.id}
-                    onClick={() => onSelectTab(file.id)}
-                    className="flex items-center justify-between w-full p-2 rounded-lg text-xs transition-colors hover:brightness-125"
-                    style={{ backgroundColor: themeConf.bg, color: themeConf.text }}
-                  >
-                    <span className="flex items-center gap-2 font-mono">
-                      {getFileIcon(file.name, false)}
-                      {file.name}
-                    </span>
-                    <span className="text-[10px] uppercase font-mono" style={{ color: themeConf.textMuted }}>
-                      {file.language}
-                    </span>
-                  </button>
-                ))}
-              </div>
+            {/* Quick 1-Tap Template Launchers */}
+            <div className="grid grid-cols-2 gap-2.5 mb-5">
+              <button
+                onClick={() => {
+                  const tmpl = STARTER_TEMPLATES.find(t => t.id === 'cpp-lab');
+                  if (tmpl && onLoadTemplate) onLoadTemplate(tmpl);
+                }}
+                className="flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all active:scale-95 hover:brightness-125 cursor-pointer"
+                style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}
+              >
+                <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold font-mono text-xs shrink-0">
+                  C++
+                </div>
+                <div className="truncate">
+                  <div className="font-semibold text-xs text-white">C++ Lab</div>
+                  <div className="text-[10px] opacity-60 truncate">GCC · Fast Compiling</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  const tmpl = STARTER_TEMPLATES.find(t => t.id === 'java-lab');
+                  if (tmpl && onLoadTemplate) onLoadTemplate(tmpl);
+                }}
+                className="flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all active:scale-95 hover:brightness-125 cursor-pointer"
+                style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-600/20 text-amber-400 flex items-center justify-center font-bold font-mono text-xs shrink-0">
+                  Java
+                </div>
+                <div className="truncate">
+                  <div className="font-semibold text-xs text-white">Java OOP</div>
+                  <div className="text-[10px] opacity-60 truncate">OpenJDK Engine</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  const tmpl = STARTER_TEMPLATES.find(t => t.id === 'python-lab');
+                  if (tmpl && onLoadTemplate) onLoadTemplate(tmpl);
+                }}
+                className="flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all active:scale-95 hover:brightness-125 cursor-pointer"
+                style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-bold font-mono text-xs shrink-0">
+                  Py
+                </div>
+                <div className="truncate">
+                  <div className="font-semibold text-xs text-white">Python 3</div>
+                  <div className="text-[10px] opacity-60 truncate">Offline In-Device</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  const tmpl = STARTER_TEMPLATES.find(t => t.id === 'web-modern');
+                  if (tmpl && onLoadTemplate) onLoadTemplate(tmpl);
+                }}
+                className="flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all active:scale-95 hover:brightness-125 cursor-pointer"
+                style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}
+              >
+                <div className="w-8 h-8 rounded-lg bg-cyan-600/20 text-cyan-400 flex items-center justify-center font-bold font-mono text-xs shrink-0">
+                  Web
+                </div>
+                <div className="truncate">
+                  <div className="font-semibold text-xs text-white">Web App</div>
+                  <div className="text-[10px] opacity-60 truncate">HTML · CSS · JS</div>
+                </div>
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-left">
-              <div className="p-3 rounded-xl border text-xs" style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}>
-                <span className="font-semibold block mb-1" style={{ color: themeConf.accent }}>Run Code</span>
-                <span style={{ color: themeConf.textMuted }}>Ctrl+Enter or Run button</span>
+            {/* Existing Files in Workspace */}
+            {files.filter(f => !f.isFolder).length > 0 && (
+              <div className="text-left mb-4 p-3 rounded-xl border" style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}>
+                <span className="text-[11px] font-semibold uppercase tracking-wider block mb-2" style={{ color: themeConf.accent }}>
+                  Files In Workspace
+                </span>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                  {files.filter(f => !f.isFolder).map((file) => (
+                    <button
+                      key={file.id}
+                      onClick={() => onSelectTab(file.id)}
+                      className="flex items-center justify-between w-full p-2 rounded-lg text-xs transition-colors hover:brightness-125 cursor-pointer"
+                      style={{ backgroundColor: themeConf.bg, color: themeConf.text }}
+                    >
+                      <span className="flex items-center gap-2 font-mono truncate">
+                        {getFileIcon(file.name, false)}
+                        {file.name}
+                      </span>
+                      <span className="text-[10px] uppercase font-mono opacity-60">
+                        {file.language}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="p-3 rounded-xl border text-xs" style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}>
-                <span className="font-semibold block mb-1" style={{ color: themeConf.accent }}>Command Palette</span>
-                <span style={{ color: themeConf.textMuted }}>Ctrl+P or F1 key</span>
-              </div>
-            </div>
+            )}
+
+            {/* Create New File Button */}
+            {onCreateFile && (
+              <button
+                onClick={onCreateFile}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-white shadow-md flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer"
+                style={{ backgroundColor: themeConf.accent }}
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create New Custom File</span>
+              </button>
+            )}
           </div>
         </div>
       );

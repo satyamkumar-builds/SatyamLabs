@@ -65,9 +65,9 @@ export const TerminalPanel = ({
   const problemLogs = logs.filter((l) => l.type === 'stderr');
 
   return (
-    <div className="h-60 bg-[#1e1e1e] border-t border-[#2b2b2b] flex flex-col z-20 shrink-0 font-mono text-xs select-text">
-      {/* VS Code Style Panel Header */}
-      <div className="flex items-center justify-between px-3 h-8 bg-[#181818] border-b border-[#2b2b2b] select-none shrink-0 font-sans">
+    <div className="h-64 max-h-[50vh] md:h-60 bg-[#1e1e1e] border-t border-[#2b2b2b] flex flex-col z-20 shrink-0 font-mono text-xs select-text shadow-xl">
+      {/* Panel Header */}
+      <div className="flex items-center justify-between px-3 h-9 md:h-8 bg-[#181818] border-b border-[#2b2b2b] select-none shrink-0 font-sans">
         {/* Left Tabs */}
         <div className="flex items-center gap-4 text-[11px] font-semibold tracking-wider uppercase">
           <button

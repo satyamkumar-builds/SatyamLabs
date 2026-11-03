@@ -19,6 +19,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         Window window = getWindow();
+        WindowCompat.setDecorFitsSystemWindows(window, true);
 
         // Status bar & Navigation bar styling with dark color
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -42,9 +43,7 @@ public class MainActivity extends BridgeActivity {
                 Insets systemBars = windowInsets.getInsets(
                     WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
                 );
-                Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-                int bottomInset = Math.max(systemBars.bottom, ime.bottom);
-                v.setPadding(systemBars.left, systemBars.top, systemBars.right, bottomInset);
+                v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
                 return windowInsets;
             });
         }

@@ -10,6 +10,7 @@ import {
   Smartphone,
   Upload,
   FolderUp,
+  X,
 } from 'lucide-react';
 import type { FileItem, ActivePanel } from '../types';
 import { getFileIcon } from '../utils/fileIcons';
@@ -27,11 +28,11 @@ interface SidebarProps {
   onLoadTemplate: (template: ProjectTemplate) => void;
   onImportFiles: (importedFiles: { name: string; content: string }[]) => void;
   activePanel: ActivePanel;
-  setActivePanel: (panel: ActivePanel) => void;
 }
 
 export const Sidebar = ({
   isOpen,
+  onClose,
   files,
   activeFileId,
   onSelectFile,
@@ -139,62 +140,84 @@ export const Sidebar = ({
       )
     : [];
 
+  if (!isOpen) return null;
+
   return (
-    <aside 
-      className={`w-64 bg-[#252526] flex flex-col h-full select-none shrink-0 z-20 overflow-hidden relative transition-colors ${
-        isDragging ? 'bg-[#1a2333] border-2 border-dashed border-[#58a6ff]' : ''
-      }`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {/* Hidden file & folder upload inputs */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        onChange={handleFilesChosen}
-        className="hidden"
-      />
-      <input
-        ref={folderInputRef}
-        type="file"
-        multiple
-        {...({ webkitdirectory: '', directory: '' } as any)}
-        onChange={handleFilesChosen}
-        className="hidden"
+    <>
+      {/* Mobile Drawer Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden animate-in fade-in"
+        onClick={onClose}
       />
 
-      {/* Drag Overlay */}
-      {isDragging && (
-        <div className="absolute inset-0 bg-blue-900/40 backdrop-blur-xs flex flex-col items-center justify-center text-white z-30 pointer-events-none p-4 text-center">
-          <Upload className="w-8 h-8 mb-2 animate-bounce text-cyan-300" />
-          <span className="font-semibold text-xs">Drop files to import into SatyamLabs</span>
-        </div>
-      )}
+      <aside 
+        className={`fixed md:relative inset-y-0 left-0 w-72 max-w-[85vw] md:w-64 bg-[#252526] flex flex-col h-full select-none shrink-0 z-50 md:z-20 overflow-hidden shadow-2xl md:shadow-none transition-transform animate-in slide-in-from-left duration-200 ${
+          isDragging ? 'bg-[#1a2333] border-2 border-dashed border-[#58a6ff]' : ''
+        }`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Hidden file & folder upload inputs */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={handleFilesChosen}
+          className="hidden"
+        />
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          {...({ webkitdirectory: '', directory: '' } as any)}
+          onChange={handleFilesChosen}
+          className="hidden"
+        />
 
-      {/* Panel Header */}
-      <div className="h-9 flex items-center justify-between px-4 text-[11px] font-semibold uppercase tracking-widest text-[#bbbbbb] shrink-0 border-b border-[#2b2b2b]">
-        <span>{panelTitle}</span>
-        {activePanel === 'explorer' && (
-          <div className="flex items-center gap-1 text-[#858585]">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="p-1 hover:text-white hover:bg-[#333333] rounded transition-colors"
-              title="Import / Upload Files"
-            >
-              <Upload className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => folderInputRef.current?.click()}
-              className="p-1 hover:text-white hover:bg-[#333333] rounded transition-colors"
-              title="Import / Upload Folder"
-            >
-              <FolderUp className="w-3.5 h-3.5" />
-            </button>
+        {/* Drag Overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 bg-blue-900/40 backdrop-blur-xs flex flex-col items-center justify-center text-white z-30 pointer-events-none p-4 text-center">
+            <Upload className="w-8 h-8 mb-2 animate-bounce text-cyan-300" />
+            <span className="font-semibold text-xs">Drop files to import into SatyamLabs</span>
           </div>
         )}
-      </div>
+
+        {/* Panel Header */}
+        <div className="h-11 md:h-9 flex items-center justify-between px-4 text-[11px] font-semibold uppercase tracking-widest text-[#bbbbbb] shrink-0 border-b border-[#2b2b2b]">
+          <div className="flex items-center gap-2">
+            <span>{panelTitle}</span>
+          </div>
+
+          <div className="flex items-center gap-1 text-[#858585]">
+            {activePanel === 'explorer' && (
+              <>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-1.5 hover:text-white hover:bg-[#333333] rounded transition-colors"
+                  title="Import / Upload Files"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => folderInputRef.current?.click()}
+                  className="p-1.5 hover:text-white hover:bg-[#333333] rounded transition-colors"
+                  title="Import / Upload Folder"
+                >
+                  <FolderUp className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
+            {/* Close button for mobile */}
+            <button
+              onClick={onClose}
+              className="md:hidden p-1.5 hover:bg-[#333333] rounded-lg text-[#858585] hover:text-white ml-1"
+              title="Close Drawer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
       {/* ─── EXPLORER ─── */}
       {activePanel === 'explorer' && (
@@ -277,8 +300,13 @@ export const Sidebar = ({
                   return (
                     <div
                       key={file.id}
-                      onClick={() => !file.isFolder && onSelectFile(file.id)}
-                      className={`group flex items-center justify-between ${indent} pr-2 h-[26px] cursor-pointer transition-colors ${
+                      onClick={() => {
+                        if (!file.isFolder) {
+                          onSelectFile(file.id);
+                          if (window.innerWidth < 768) onClose();
+                        }
+                      }}
+                      className={`group flex items-center justify-between ${indent} pr-2 h-9 md:h-[26px] cursor-pointer transition-colors ${
                         isActive
                           ? 'bg-[#37373d] text-white font-medium'
                           : 'text-[#cccccc] hover:bg-[#2a2d2e]'
@@ -308,8 +336,8 @@ export const Sidebar = ({
                         )}
                       </div>
 
-                      {/* Rename and Delete on hover */}
-                      <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 text-[#858585]">
+                      {/* Rename and Delete actions (visible on mobile tap & desktop hover) */}
+                      <div className="flex md:hidden md:group-hover:flex items-center gap-0.5 shrink-0 text-[#858585]">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -319,7 +347,7 @@ export const Sidebar = ({
                           className="p-1 hover:text-white rounded"
                           title="Rename"
                         >
-                          <Edit3 className="w-3 h-3" />
+                          <Edit3 className="w-3.5 h-3.5 md:w-3 md:h-3" />
                         </button>
                         <button
                           onClick={(e) => {
@@ -329,7 +357,7 @@ export const Sidebar = ({
                           className="p-1 hover:text-red-400 rounded"
                           title="Delete"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5 md:w-3 md:h-3" />
                         </button>
                       </div>
                     </div>
@@ -469,5 +497,6 @@ export const Sidebar = ({
         </div>
       )}
     </aside>
-  );
+  </>
+);
 };

@@ -21,6 +21,7 @@ import { PreviewPanel } from './components/PreviewPanel';
 import { TerminalPanel } from './components/TerminalPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { CommandPalette } from './components/CommandPalette';
+import { MobileBottomBar } from './components/MobileBottomBar';
 
 const STORAGE_KEY_FILES = 'satyamlabs_files';
 const STORAGE_KEY_SETTINGS = 'satyamlabs_settings';
@@ -167,12 +168,30 @@ export function App() {
     document.documentElement.style.setProperty('--editor-font', settings.fontFamily || 'Consolas');
   }, [settings.theme, settings.fontFamily]);
 
+  // Ensure an active file is ALWAYS selected on startup or if activeFile becomes null
+  useEffect(() => {
+    if (!activeFile && files.length > 0) {
+      const firstNonFolder = files.find(f => !f.isFolder);
+      if (firstNonFolder) {
+        setActiveFileId(firstNonFolder.id);
+        setTabs(prev => {
+          if (prev.some(t => t.fileId === firstNonFolder.id)) return prev;
+          return [{ fileId: firstNonFolder.id }, ...prev];
+        });
+      }
+    }
+  }, [activeFile, files]);
+
   // Auto-close sidebar on mobile initial render
   useEffect(() => {
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
   }, []);
+
+  const isWebProject = useMemo(() => {
+    return files.some(f => f.name.endsWith('.html') || f.name.endsWith('.htm'));
+  }, [files]);
 
   // Web Preview Document Generation
   const previewSrcDoc = useMemo(() => {
@@ -444,7 +463,6 @@ export function App() {
           onLoadTemplate={handleLoadTemplate}
           onImportFiles={handleImportFiles}
           activePanel={activePanel}
-          setActivePanel={setActivePanel}
         />
 
         {/* Center Workspace (Editor + Live Preview + Terminal) */}
@@ -462,6 +480,8 @@ export function App() {
                   onCloseTab={handleCloseTab}
                   onChangeContent={handleChangeContent}
                   settings={settings}
+                  onLoadTemplate={handleLoadTemplate}
+                  onCreateFile={() => handleCreateFile()}
                 />
               </div>
             )}
@@ -493,6 +513,21 @@ export function App() {
           />
         </div>
       </div>
+
+      {/* Native Mobile Bottom Navigation Bar */}
+      <MobileBottomBar
+        onToggleFiles={() => setIsSidebarOpen(p => !p)}
+        isFilesOpen={isSidebarOpen}
+        fileCount={files.filter(f => !f.isFolder).length}
+        viewMode={viewMode}
+        onChangeViewMode={setViewMode}
+        isRunning={isRunning}
+        onRun={() => handleRun()}
+        isTerminalOpen={isTerminalOpen}
+        onToggleTerminal={() => setIsTerminalOpen(p => !p)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        isWebProject={isWebProject}
+      />
 
       {/* Command Palette */}
       <CommandPalette

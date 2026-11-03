@@ -20,7 +20,7 @@ export const MobileKeyboardBar: React.FC<MobileKeyboardBarProps> = ({
 }) => {
   const handleKeyClick = (key: string) => {
     if ('vibrate' in navigator) {
-      try { navigator.vibrate(8); } catch (e) {}
+      try { navigator.vibrate(12); } catch (e) {}
     }
     
     if (key === 'Tab') {
@@ -32,37 +32,33 @@ export const MobileKeyboardBar: React.FC<MobileKeyboardBarProps> = ({
 
   return (
     <div 
-      className="flex md:hidden items-center gap-1.5 px-2 bg-[#181818] border-t border-[#2b2b2b] overflow-x-auto select-none no-scrollbar shadow-inner z-20 shrink-0"
-      style={{
-        paddingTop: '6px',
-        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 6px)',
-      }}
+      className="flex md:hidden items-center gap-1.5 px-2 py-1.5 bg-[#141414] border-t border-[#262626] overflow-x-auto select-none no-scrollbar shrink-0 shadow-lg"
     >
       {/* Undo / Redo Actions */}
       <button
         onClick={onUndo}
-        className="flex items-center justify-center min-w-[36px] h-8 px-2 bg-[#252526] hover:bg-[#333333] active:bg-[#007acc] text-[#cccccc] rounded border border-[#3c3c3c] text-xs font-mono transition-colors"
+        className="flex items-center justify-center min-w-[40px] h-9 px-2 bg-[#222222] active:bg-[#007acc] text-[#cccccc] active:text-white rounded-lg border border-[#333333] text-xs font-mono transition-transform active:scale-95 shrink-0"
         title="Undo"
       >
-        <Undo2 className="w-3.5 h-3.5" />
+        <Undo2 className="w-4 h-4" />
       </button>
 
       <button
         onClick={onRedo}
-        className="flex items-center justify-center min-w-[36px] h-8 px-2 bg-[#252526] hover:bg-[#333333] active:bg-[#007acc] text-[#cccccc] rounded border border-[#3c3c3c] text-xs font-mono transition-colors"
+        className="flex items-center justify-center min-w-[40px] h-9 px-2 bg-[#222222] active:bg-[#007acc] text-[#cccccc] active:text-white rounded-lg border border-[#333333] text-xs font-mono transition-transform active:scale-95 shrink-0"
         title="Redo"
       >
-        <Redo2 className="w-3.5 h-3.5" />
+        <Redo2 className="w-4 h-4" />
       </button>
 
-      <div className="w-[1px] h-5 bg-[#3c3c3c] mx-0.5 shrink-0" />
+      <div className="w-[1px] h-6 bg-[#333333] mx-0.5 shrink-0" />
 
       {/* Symbol keys */}
       {KEYS.map((key) => (
         <button
           key={key}
           onClick={() => handleKeyClick(key)}
-          className="flex items-center justify-center min-w-[34px] h-8 px-2 bg-[#252526] hover:bg-[#333333] active:bg-[#007acc] active:text-white text-[#d4d4d4] rounded border border-[#383838] text-xs font-mono font-semibold transition-colors shrink-0"
+          className="flex items-center justify-center min-w-[36px] h-9 px-2.5 bg-[#222222] active:bg-[#007acc] active:text-white text-[#e0e0e0] rounded-lg border border-[#333333] text-[13px] font-mono font-semibold transition-transform active:scale-95 shrink-0 shadow-2xs"
         >
           {key}
         </button>
