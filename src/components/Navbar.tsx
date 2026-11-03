@@ -63,6 +63,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="hidden sm:inline bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent font-bold">
             SatyamLabs
           </span>
+          <span className="text-[10px] bg-[#007acc]/30 text-[#58a6ff] px-1.5 py-0.5 rounded font-mono font-normal">
+            v1.1.0
+          </span>
           <span className="hidden md:inline text-xs text-[#858585] font-normal">/ {projectName}</span>
         </div>
 
