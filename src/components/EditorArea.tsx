@@ -136,7 +136,24 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
             </p>
 
             {/* Quick 1-Tap Template Launchers */}
-            <div className="grid grid-cols-2 gap-2.5 mb-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5">
+              <button
+                onClick={() => {
+                  const tmpl = STARTER_TEMPLATES.find(t => t.id === 'c-lab');
+                  if (tmpl && onLoadTemplate) onLoadTemplate(tmpl);
+                }}
+                className="flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all active:scale-95 hover:brightness-125 cursor-pointer"
+                style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}
+              >
+                <div className="w-8 h-8 rounded-lg bg-sky-600/20 text-sky-400 flex items-center justify-center font-bold font-mono text-xs shrink-0">
+                  C
+                </div>
+                <div className="truncate">
+                  <div className="font-semibold text-xs text-white">C Lab</div>
+                  <div className="text-[10px] opacity-60 truncate">Pure C · GCC 14</div>
+                </div>
+              </button>
+
               <button
                 onClick={() => {
                   const tmpl = STARTER_TEMPLATES.find(t => t.id === 'cpp-lab');
@@ -184,7 +201,7 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
                 </div>
                 <div className="truncate">
                   <div className="font-semibold text-xs text-white">Python 3</div>
-                  <div className="text-[10px] opacity-60 truncate">Offline In-Device</div>
+                  <div className="text-[10px] opacity-60 truncate">Online / In-Device</div>
                 </div>
               </button>
 
@@ -193,7 +210,7 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
                   const tmpl = STARTER_TEMPLATES.find(t => t.id === 'web-modern');
                   if (tmpl && onLoadTemplate) onLoadTemplate(tmpl);
                 }}
-                className="flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all active:scale-95 hover:brightness-125 cursor-pointer"
+                className="flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all active:scale-95 hover:brightness-125 cursor-pointer col-span-2 sm:col-span-1"
                 style={{ backgroundColor: themeConf.sidebarBg, borderColor: themeConf.border }}
               >
                 <div className="w-8 h-8 rounded-lg bg-cyan-600/20 text-cyan-400 flex items-center justify-center font-bold font-mono text-xs shrink-0">

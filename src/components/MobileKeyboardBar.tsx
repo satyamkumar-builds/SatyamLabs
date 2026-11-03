@@ -32,7 +32,11 @@ export const MobileKeyboardBar: React.FC<MobileKeyboardBarProps> = ({
 
   return (
     <div 
-      className="flex md:hidden items-center gap-1.5 px-2 py-1.5 bg-[#141414] border-t border-[#262626] overflow-x-auto select-none no-scrollbar shrink-0 shadow-lg"
+      className="flex md:hidden items-center gap-1.5 px-2 py-1.5 border-t overflow-x-auto select-none no-scrollbar shrink-0 shadow-lg"
+      style={{
+        backgroundColor: 'var(--activity-bg, #141414)',
+        borderColor: 'var(--border-color, #262626)',
+      }}
     >
       {/* Undo / Redo Actions */}
       <button

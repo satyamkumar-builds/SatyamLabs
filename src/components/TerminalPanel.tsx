@@ -65,9 +65,22 @@ export const TerminalPanel = ({
   const problemLogs = logs.filter((l) => l.type === 'stderr');
 
   return (
-    <div className="h-64 max-h-[50vh] md:h-60 bg-[#1e1e1e] border-t border-[#2b2b2b] flex flex-col z-20 shrink-0 font-mono text-xs select-text shadow-xl">
+    <div 
+      className="h-64 max-h-[50vh] md:h-60 border-t flex flex-col z-20 shrink-0 font-mono text-xs select-text shadow-xl"
+      style={{
+        backgroundColor: 'var(--editor-bg, #1e1e1e)',
+        borderColor: 'var(--border-color, #2b2b2b)',
+        color: 'var(--editor-text, #cccccc)',
+      }}
+    >
       {/* Panel Header */}
-      <div className="flex items-center justify-between px-3 h-9 md:h-8 bg-[#181818] border-b border-[#2b2b2b] select-none shrink-0 font-sans">
+      <div 
+        className="flex items-center justify-between px-3 h-9 md:h-8 border-b select-none shrink-0 font-sans"
+        style={{
+          backgroundColor: 'var(--activity-bg, #181818)',
+          borderColor: 'var(--border-color, #2b2b2b)',
+        }}
+      >
         {/* Left Tabs */}
         <div className="flex items-center gap-4 text-[11px] font-semibold tracking-wider uppercase">
           <button

@@ -48,19 +48,28 @@ export function transpileC(cCode: string): string {
   js = js.replace(/#define\s+([A-Za-z0-9_]+)\s+([^\n]+)/g, 'const $1 = $2;');
   js = js.replace(/using\s+namespace\s+std\s*;/g, '');
 
-  // 3. Handle C++ cin >> a >> b;
+  // 3. Transform function declarations FIRST before variable replacements
+  // e.g. int calculateSum(int arr[], int size) { -> function calculateSum(arr, size) {
+  js = js.replace(/\b(?:int|void|double|float|char|bool|long|short)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{/g, (_, fnName, params) => {
+    const cleanParams = params.split(',').map((p: string) => {
+      return p.trim().replace(/\b(?:int|void|double|float|char|bool|long|short|unsigned|const)\b/g, '').replace(/\[\s*\]/g, '').trim();
+    }).filter(Boolean).join(', ');
+    return `function ${fnName}(${cleanParams}) {`;
+  });
+
+  // 4. Handle C++ cin >> a >> b;
   js = js.replace(/cin\s*>>\s*([^;]+);/g, (_, stream) => {
     const vars = stream.split(/>>\s*/).map((v: string) => v.trim()).filter(Boolean);
     return vars.map((v: string) => `${v} = Number(__readStdin());`).join(' ');
   });
 
-  // 4. Handle scanf("%d", &var) or scanf("%d %d", &a, &b)
+  // 5. Handle scanf("%d", &var) or scanf("%d %d", &a, &b)
   js = js.replace(/scanf\s*\(\s*"([^"]*)"\s*,\s*([^)]+)\)\s*;/g, (_, _fmt, vars) => {
     const varList = vars.split(',').map((v: string) => v.replace(/^&/, '').trim()).filter(Boolean);
     return varList.map((v: string) => `${v} = Number(__readStdin());`).join(' ');
   });
 
-  // 5. Handle C++ cout << a << b << endl;
+  // 6. Handle C++ cout << a << b << endl;
   js = js.replace(/cout\s*<<\s*([^;]+);/g, (_, stream) => {
     const parts = stream.split(/<<\s*/).map((p: string) => p.trim()).filter(Boolean);
     const converted = parts.map((part: string) => {
@@ -70,11 +79,19 @@ export function transpileC(cCode: string): string {
     return `__cout(${converted.join(', ')});`;
   });
 
-  // 6. Handle printf(...) and puts(...)
+  // 7. Handle printf(...) and puts(...)
   js = js.replace(/printf\s*\(\s*([^;]+)\);/g, '__printf($1);');
   js = js.replace(/puts\s*\(\s*([^;]+)\);/g, '__puts($1);');
 
-  // 7. Replace primitive types with `let`
+  // 8. Handle type casts: (double)x -> Number(x), (int)x -> Math.floor(x)
+  js = js.replace(/\(\s*double\s*\)\s*([A-Za-z0-9_]+)/g, 'Number($1)');
+  js = js.replace(/\(\s*float\s*\)\s*([A-Za-z0-9_]+)/g, 'Number($1)');
+  js = js.replace(/\(\s*int\s*\)\s*([A-Za-z0-9_]+)/g, 'Math.floor($1)');
+
+  // 9. Handle array definitions: int arr[] = { 1, 2, 3 }; -> let arr = [1, 2, 3];
+  js = js.replace(/\b(?:int|float|double|char|bool|long|short)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[[^\]]*\]\s*=\s*\{([^}]*)\}\s*;/g, 'let $1 = [$2];');
+
+  // 10. Replace remaining primitive variable types with let
   const types = ['int', 'float', 'double', 'char', 'bool', 'long', 'short', 'string', 'void', 'unsigned int', 'long long'];
   for (const t of types) {
     const escaped = t.replace(/\s+/g, '\\s+');
@@ -82,19 +99,13 @@ export function transpileC(cCode: string): string {
     js = js.replace(re, 'let $1 $2 $3');
   }
 
-  // 8. Handle array definitions: let arr [] = { 1, 2, 3 }; -> let arr = [1, 2, 3];
-  js = js.replace(/let\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[[^\]]*\]\s*=\s*\{([^}]*)\}\s*;/g, 'let $1 = [$2];');
-
-  // 9. Math library standard bindings
+  // 11. Math library standard bindings
   const mathFuncs = ['sqrt', 'pow', 'abs', 'fabs', 'sin', 'cos', 'tan', 'floor', 'ceil', 'round', 'min', 'max'];
   for (const fn of mathFuncs) {
     js = js.replace(new RegExp(`\\b${fn}\\s*\\(`, 'g'), `Math.${fn}(`);
   }
 
-  // 10. Transform function declarations
-  js = js.replace(/let\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{/g, 'function $1($2) {');
-
-  // 11. Add main() invocation
+  // 12. Add main() invocation
   js += '\nif (typeof main === "function") { main(); }';
 
   return js;
@@ -225,10 +236,20 @@ export function runOfflineJava(
     hasNext() { return stdinIdx < stdinTokens.length; }
   }
 
+  const Arrays = {
+    asList: (...args: any[]) => (args.length === 1 && Array.isArray(args[0]) ? args[0] : args),
+    toString: (arr: any) => JSON.stringify(arr),
+  };
+
   try {
     let js = code;
     js = js.replace(/\/\*[\s\S]*?\*\//g, '');
     js = js.replace(/\/\/.*/g, '');
+    js = js.replace(/import\s+[^;]+;/g, '');
+
+    // Array initialization: String[] arr = {"a", "b"}; -> let arr = ["a", "b"];
+    js = js.replace(/=\s*\{([^}]*)\}\s*;/g, '= [$1];');
+    js = js.replace(/\b[A-Za-z0-9_]+\s*\[\s*\]\s+([A-Za-z_][A-Za-z0-9_]*)/g, 'let $1');
 
     const types = ['int', 'float', 'double', 'char', 'boolean', 'long', 'short', 'String', 'Scanner'];
     for (const t of types) {
@@ -238,12 +259,12 @@ export function runOfflineJava(
     const mainMatch = js.match(/public\s+static\s+void\s+main\s*\([^)]*\)\s*\{([\s\S]*)\}/);
     const body = mainMatch ? mainMatch[1] : js;
 
-    const runner = new Function('System', 'Scanner', `
+    const runner = new Function('System', 'Scanner', 'Arrays', 'Math', `
       "use strict";
       ${body}
     `);
 
-    runner(System, Scanner);
+    runner(System, Scanner, Arrays, Math);
     return { success: true, output: outputAccumulator };
   } catch (err: any) {
     onLog(`[Offline Java Runtime Error]: ${err.message || String(err)}`, 'stderr');

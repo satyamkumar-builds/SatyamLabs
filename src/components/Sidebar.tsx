@@ -179,9 +179,14 @@ export const Sidebar = ({
       />
 
       <aside 
-        className={`fixed md:relative inset-y-0 left-0 w-80 max-w-[85vw] md:w-64 bg-[#252526] flex flex-col h-full select-none shrink-0 z-50 md:z-20 overflow-hidden shadow-2xl md:shadow-none transition-transform animate-in slide-in-from-left duration-200 ${
+        className={`fixed md:relative inset-y-0 left-0 w-80 max-w-[85vw] md:w-64 border-r flex flex-col h-full select-none shrink-0 z-50 md:z-20 overflow-hidden shadow-2xl md:shadow-none transition-transform animate-in slide-in-from-left duration-200 ${
           isDragging ? 'bg-[#1a2333] border-2 border-dashed border-[#58a6ff]' : ''
         }`}
+        style={{
+          backgroundColor: 'var(--sidebar-bg, #252526)',
+          borderColor: 'var(--border-color, #2b2b2b)',
+          color: 'var(--editor-text, #cccccc)',
+        }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -205,7 +210,13 @@ export const Sidebar = ({
         )}
 
         {/* ─── Navigation Tabs Strip (Never get stuck in Templates) ─── */}
-        <div className="h-12 md:h-10 flex items-center justify-between px-2 bg-[#1e1e24] border-b border-[#2d2d30] shrink-0">
+        <div 
+          className="h-12 md:h-10 flex items-center justify-between px-2 border-b shrink-0"
+          style={{
+            backgroundColor: 'var(--activity-bg, #1e1e24)',
+            borderColor: 'var(--border-color, #2d2d30)',
+          }}
+        >
           <div className="flex items-center gap-1">
             <button
               onClick={() => setActivePanel('explorer')}

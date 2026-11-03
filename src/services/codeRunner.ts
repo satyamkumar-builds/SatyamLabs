@@ -18,6 +18,19 @@ const WANDBOX_COMPILER_MAP: Record<string, string> = {
   sql: 'sqlite-3.46.1',
 };
 
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return res;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
 export async function runCode(
   language: SupportedLanguage,
   code: string,
@@ -90,33 +103,29 @@ export async function runCode(
   // 2. Python (Wandbox CPython 3.12 + Pyodide + Offline Engine)
   // ==========================================
   if (language === 'python') {
-    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
+    // 1. Try Wandbox CPython 3.12
+    try {
+      addLog(`[Python 3.12 Engine] Dispatching ${filename} to compiler engine...`, 'system');
+      const response = await fetchWithTimeout('https://wandbox.org/api/compile.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          compiler: 'cpython-3.12.7',
+          code,
+          stdin: stdin || '',
+        }),
+      }, 7000);
 
-    // 1. Try Wandbox CPython 3.12 (Full real Linux Python 3 with stdlib & STDIN)
-    if (isOnline) {
-      try {
-        addLog(`[Python 3.12 Engine] Dispatching ${filename} to compiler engine...`, 'system');
-        const response = await fetch('https://wandbox.org/api/compile.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            compiler: 'cpython-3.12.7',
-            code,
-            stdin: stdin || '',
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.program_output) addLog(data.program_output, 'stdout');
-          if (data.program_error) addLog(data.program_error, 'stderr');
-          const duration = Math.round(performance.now() - startTime);
-          addLog(`[Python 3.12 Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
-          return { success: data.status === 0 || data.status === '0', durationMs: duration };
-        }
-      } catch (e: any) {
-        addLog(`[Network Notice]: Cloud compiler unavailable, attempting local engine...`, 'info');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.program_output) addLog(data.program_output, 'stdout');
+        if (data.program_error) addLog(data.program_error, 'stderr');
+        const duration = Math.round(performance.now() - startTime);
+        addLog(`[Python 3.12 Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
+        return { success: data.status === 0 || data.status === '0', durationMs: duration };
       }
+    } catch (e: any) {
+      addLog(`[SatyamLabs Notice] Cloud compiler unreachable / offline. Executing with In-Device Python Engine...`, 'info');
     }
 
     // 2. Try Pyodide WASM if available
@@ -138,12 +147,11 @@ export async function runCode(
         addLog(`[Pyodide] Completed in ${duration}ms`, 'system');
         return { success: true, durationMs: duration };
       } catch (wasmErr: any) {
-        addLog(`[Pyodide Notice]: ${wasmErr.message || 'WASM runtime error'}`, 'info');
+        // Fallback to offline engine
       }
     }
 
     // 3. Fallback to Offline Native Python execution
-    addLog('[SatyamLabs] Running via Offline Python Engine...', 'system');
     const result = runOfflinePython(code, (text, type) => addLog(text, type), stdin);
     const duration = Math.round(performance.now() - startTime);
     addLog(`[Offline Python] Finished in ${duration}ms`, 'system');
@@ -154,48 +162,43 @@ export async function runCode(
   // 3. C & C++ (Wandbox GCC + Offline Engine)
   // ==========================================
   if (language === 'c' || language === 'cpp') {
-    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
+    // 1. Try Wandbox GCC
+    try {
+      addLog(`[GCC Cloud Compiler] Compiling ${filename} with GCC...`, 'system');
+      const response = await fetchWithTimeout('https://wandbox.org/api/compile.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          compiler: 'gcc-head',
+          code,
+          stdin: stdin || '',
+        }),
+      }, 7000);
 
-    // If online, use Wandbox for GCC compilation with STDIN support
-    if (isOnline) {
-      try {
-        addLog(`[GCC Cloud Compiler] Compiling ${filename} with GCC...`, 'system');
-        const response = await fetch('https://wandbox.org/api/compile.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            compiler: 'gcc-head',
-            code,
-            stdin: stdin || '',
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.compiler_error || data.compiler_message) {
-            const msg = data.compiler_error || data.compiler_message;
-            if (data.status !== 0 && data.status !== '0') {
-              addLog(`[Compilation Output]:\n${msg}`, 'stderr');
-            }
+      if (response.ok) {
+        const data = await response.json();
+        if (data.compiler_error || data.compiler_message) {
+          const msg = data.compiler_error || data.compiler_message;
+          if (data.status !== 0 && data.status !== '0') {
+            addLog(`[Compilation Output]:\n${msg}`, 'stderr');
           }
-          if (data.program_output) {
-            addLog(data.program_output, 'stdout');
-          }
-          if (data.program_error) {
-            addLog(data.program_error, 'stderr');
-          }
-
-          const duration = Math.round(performance.now() - startTime);
-          addLog(`[GCC Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
-          return { success: data.status === 0 || data.status === '0', durationMs: duration };
         }
-      } catch (netErr) {
-        addLog('[Network Notice] Cloud compiler unreachable, switching to Offline Native Engine...', 'info');
+        if (data.program_output) {
+          addLog(data.program_output, 'stdout');
+        }
+        if (data.program_error) {
+          addLog(data.program_error, 'stderr');
+        }
+
+        const duration = Math.round(performance.now() - startTime);
+        addLog(`[GCC Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
+        return { success: data.status === 0 || data.status === '0', durationMs: duration };
       }
+    } catch (netErr: any) {
+      addLog('[SatyamLabs Notice] Cloud compiler unreachable / offline. Executing with In-Device Engine...', 'info');
     }
 
-    // Offline Native C/C++ Execution with STDIN
-    addLog('[SatyamLabs] Running via Offline Native C/C++ Engine...', 'system');
+    // 2. Offline Native C/C++ Execution with STDIN
     const result = runOfflineCCpp(code, (text, type) => addLog(text, type), stdin);
     const duration = Math.round(performance.now() - startTime);
     addLog(`[Offline Engine] Completed in ${duration}ms`, 'system');
@@ -206,50 +209,46 @@ export async function runCode(
   // 4. Java (Wandbox OpenJDK + Offline Engine)
   // ==========================================
   if (language === 'java') {
-    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
+    // 1. Try Wandbox OpenJDK
+    try {
+      addLog(`[OpenJDK Compiler] Compiling ${filename} with OpenJDK...`, 'system');
+      // Wandbox compiles inside prog.java. In Java, public classes must match the file name.
+      // Converting 'public class' -> 'class' allows any class name (Main, Solution, etc.) to compile seamlessly.
+      const preparedJavaCode = code.replace(/\bpublic\s+class\b/g, 'class');
+      const response = await fetchWithTimeout('https://wandbox.org/api/compile.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          compiler: 'openjdk-jdk-21+35',
+          code: preparedJavaCode,
+          stdin: stdin || '',
+        }),
+      }, 7000);
 
-    if (isOnline) {
-      try {
-        addLog(`[OpenJDK Compiler] Compiling ${filename} with OpenJDK...`, 'system');
-        // Wandbox compiles inside prog.java. In Java, public classes must match the file name.
-        // Converting 'public class' -> 'class' allows any class name (Main, Solution, etc.) to compile seamlessly.
-        const preparedJavaCode = code.replace(/\bpublic\s+class\b/g, 'class');
-        const response = await fetch('https://wandbox.org/api/compile.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            compiler: 'openjdk-jdk-21+35',
-            code: preparedJavaCode,
-            stdin: stdin || '',
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.compiler_error || data.compiler_message) {
-            const msg = data.compiler_error || data.compiler_message;
-            if (data.status !== 0 && data.status !== '0') {
-              addLog(`[Compilation Output]:\n${msg}`, 'stderr');
-            }
+      if (response.ok) {
+        const data = await response.json();
+        if (data.compiler_error || data.compiler_message) {
+          const msg = data.compiler_error || data.compiler_message;
+          if (data.status !== 0 && data.status !== '0') {
+            addLog(`[Compilation Output]:\n${msg}`, 'stderr');
           }
-          if (data.program_output) {
-            addLog(data.program_output, 'stdout');
-          }
-          if (data.program_error) {
-            addLog(data.program_error, 'stderr');
-          }
-
-          const duration = Math.round(performance.now() - startTime);
-          addLog(`[OpenJDK Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
-          return { success: data.status === 0 || data.status === '0', durationMs: duration };
         }
-      } catch (netErr) {
-        addLog('[Network Notice] Cloud compiler unreachable, switching to Offline Java Engine...', 'info');
+        if (data.program_output) {
+          addLog(data.program_output, 'stdout');
+        }
+        if (data.program_error) {
+          addLog(data.program_error, 'stderr');
+        }
+
+        const duration = Math.round(performance.now() - startTime);
+        addLog(`[OpenJDK Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
+        return { success: data.status === 0 || data.status === '0', durationMs: duration };
       }
+    } catch (netErr: any) {
+      addLog('[SatyamLabs Notice] Cloud compiler unreachable / offline. Executing with In-Device Java Engine...', 'info');
     }
 
-    // Offline Native Java execution with STDIN
-    addLog('[SatyamLabs] Running via Offline Java Engine...', 'system');
+    // 2. Offline Native Java execution with STDIN
     const result = runOfflineJava(code, (text, type) => addLog(text, type), stdin);
     const duration = Math.round(performance.now() - startTime);
     addLog(`[Offline Engine] Completed in ${duration}ms`, 'system');

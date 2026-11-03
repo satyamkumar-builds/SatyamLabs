@@ -113,25 +113,25 @@ export function App() {
 
   // Active file item with robust fallback
   const activeFile = useMemo(() => {
+    if (tabs.length === 0) return null;
     if (activeFileId) {
       const found = files.find(f => f.id === activeFileId && !f.isFolder);
       if (found) return found;
     }
-    if (tabs.length > 0) {
-      const tabFile = files.find(f => f.id === tabs[0].fileId && !f.isFolder);
-      if (tabFile) return tabFile;
-    }
-    return files.find(f => !f.isFolder) || null;
+    const tabFile = files.find(f => f.id === tabs[0].fileId && !f.isFolder);
+    return tabFile || null;
   }, [files, activeFileId, tabs]);
 
   // Keep activeFileId in sync with activeFile
   useEffect(() => {
     if (activeFile && activeFile.id !== activeFileId) {
       setActiveFileId(activeFile.id);
+    } else if (!activeFile && activeFileId !== '') {
+      setActiveFileId('');
     }
   }, [activeFile, activeFileId]);
 
-  // Ensure activeFile is always in tabs
+  // Ensure activeFile is always in tabs when activeFile exists
   useEffect(() => {
     if (activeFile && !tabs.some(t => t.fileId === activeFile.id)) {
       setTabs(prev => [...prev, { fileId: activeFile.id }]);

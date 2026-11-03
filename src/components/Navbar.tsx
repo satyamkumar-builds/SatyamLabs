@@ -56,7 +56,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header
-      className="bg-[#1f1f1f] border-b border-[#2b2b2b] flex items-center justify-between select-none z-40 shrink-0 h-11 md:h-9 px-3 text-[12px] font-sans relative"
+      className="border-b flex items-center justify-between select-none z-40 shrink-0 h-11 md:h-9 px-3 text-[12px] font-sans relative"
+      style={{
+        backgroundColor: 'var(--navbar-bg, #1f1f1f)',
+        borderColor: 'var(--border-color, #2b2b2b)',
+        color: 'var(--editor-text, #cccccc)',
+      }}
     >
       {/* ─── Left: Brand & Menus ─── */}
       <div className="flex items-center gap-1.5 min-w-0">

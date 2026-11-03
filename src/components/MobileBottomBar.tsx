@@ -38,7 +38,13 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({
   isWebProject,
 }) => {
   return (
-    <nav className="md:hidden bg-[#18181b] border-t border-[#27272a] h-14 flex items-center justify-around px-2 select-none z-30 shrink-0 shadow-2xl safe-area-bottom">
+    <nav 
+      className="md:hidden border-t h-14 flex items-center justify-around px-2 select-none z-30 shrink-0 shadow-2xl safe-area-bottom"
+      style={{
+        backgroundColor: 'var(--navbar-bg, #18181b)',
+        borderColor: 'var(--border-color, #27272a)',
+      }}
+    >
       {/* 📁 Files / Explorer */}
       <button
         onClick={onToggleFiles}

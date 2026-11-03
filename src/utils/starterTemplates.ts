@@ -4,7 +4,7 @@ export interface ProjectTemplate {
   id: string;
   name: string;
   description: string;
-  category: 'Web' | 'Python' | 'C++' | 'Java' | 'SQL' | 'Android';
+  category: 'Web' | 'Python' | 'C++' | 'C' | 'Java' | 'SQL' | 'Android';
   files: FileItem[];
 }
 
@@ -101,7 +101,7 @@ body {
 
 h1 {
   font-size: 24px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   background: linear-gradient(135deg, #58a6ff, #bc8cff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -120,61 +120,95 @@ p {
   justify-content: center;
   gap: 16px;
   margin-bottom: 24px;
+  padding: 12px;
+  background: rgba(13, 17, 23, 0.5);
+  border-radius: 12px;
 }
 
 #counter {
-  font-size: 32px;
-  font-weight: bold;
+  font-size: 28px;
+  font-weight: 700;
+  min-width: 48px;
   color: #58a6ff;
-  min-width: 50px;
 }
 
 .btn {
-  padding: 10px 20px;
   border: none;
-  border-radius: 10px;
-  font-size: 15px;
+  border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+.btn:active {
+  transform: scale(0.95);
+}
+
+.btn.primary, .btn.secondary {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .btn.primary {
   background: #238636;
-  color: #fff;
+  color: white;
+}
+
+.btn.primary:hover {
+  background: #2ea043;
 }
 
 .btn.secondary {
   background: #21262d;
   color: #c9d1d9;
-}
-
-.btn.action {
-  background: #1f6feb;
-  color: #fff;
-  width: 100%;
-  margin-top: 10px;
-}
-
-.interactive-area input {
-  width: 100%;
-  padding: 12px;
-  border-radius: 10px;
   border: 1px solid #30363d;
+}
+
+.btn.secondary:hover {
+  background: #30363d;
+}
+
+.interactive-area {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+input {
+  flex: 1;
+  padding: 10px 14px;
   background: #0d1117;
-  color: #f0f6fc;
-  font-size: 14px;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  color: #c9d1d9;
+  font-size: 13px;
   outline: none;
 }
 
-.output {
-  margin-top: 16px;
-  padding: 10px;
-  border-radius: 8px;
+input:focus {
+  border-color: #58a6ff;
+}
+
+.btn.action {
+  padding: 10px 16px;
+  background: #1f6feb;
+  color: white;
   font-size: 13px;
-  background: rgba(56, 139, 253, 0.1);
-  color: #58a6ff;
-  display: none;
+}
+
+.btn.action:hover {
+  background: #388bfd;
+}
+
+.output {
+  min-height: 24px;
+  font-size: 13px;
+  color: #3fb950;
+  font-weight: 500;
 }`
       },
       {
@@ -183,86 +217,84 @@ p {
         path: '/script.js',
         isFolder: false,
         language: 'javascript',
-        content: `let count = 0;
+        content: `// SatyamLabs Interactive Web Playground
+let count = 0;
 const counterEl = document.getElementById('counter');
 const incBtn = document.getElementById('incBtn');
 const decBtn = document.getElementById('decBtn');
 const userInput = document.getElementById('userInput');
 const logBtn = document.getElementById('logBtn');
-const outputMsg = document.getElementById('outputMessage');
+const outputMessage = document.getElementById('outputMessage');
 
 incBtn.addEventListener('click', () => {
   count++;
   counterEl.textContent = count;
-  console.log("Count incremented to:", count);
+  console.log('[SatyamLabs Web] Counter incremented to:', count);
 });
 
 decBtn.addEventListener('click', () => {
   count--;
   counterEl.textContent = count;
-  console.log("Count decremented to:", count);
+  console.log('[SatyamLabs Web] Counter decremented to:', count);
 });
 
 logBtn.addEventListener('click', () => {
-  const text = userInput.value.trim();
-  if (text) {
-    console.log("[User Input]:", text);
-    outputMsg.style.display = 'block';
-    outputMsg.textContent = 'Logged to Console: "' + text + '"';
-    userInput.value = '';
-  } else {
-    console.warn("Input is empty!");
-  }
+  const val = userInput.value.trim();
+  if (!val) return;
+  outputMessage.textContent = 'Received: ' + val;
+  console.log('[User Input Received]:', val);
+  userInput.value = '';
 });
 
-console.log("SatyamLabs Web Project Loaded Successfully!");
-`
+console.log('🚀 SatyamLabs Web App Loaded Successfully!');`
       }
     ]
   },
   {
-    id: 'python-lab',
-    name: 'Python 3 Algorithm Lab',
-    description: 'Runs offline in your browser/app via Pyodide WebAssembly!',
-    category: 'Python',
+    id: 'c-lab',
+    name: 'C Programming Lab',
+    description: 'Pure C99/C11 environment with formatted I/O, math, arrays, and algorithms.',
+    category: 'C',
     files: [
       {
-        id: 'f-py-1',
-        name: 'main.py',
-        path: '/main.py',
+        id: 'f-c-1',
+        name: 'main.c',
+        path: '/main.c',
         isFolder: false,
-        language: 'python',
-        content: `# SatyamLabs — Python 3 In-Browser Runner (Pyodide WASM)
-import sys
-import math
+        language: 'c',
+        content: `#include <stdio.h>
+#include <math.h>
 
-def fibonacci(n):
-    sequence = [0, 1]
-    while len(sequence) < n:
-        sequence.append(sequence[-1] + sequence[-2])
-    return sequence
+void printHeader() {
+    printf("========================================\\n");
+    printf("     ⚡ SatyamLabs Pure C Lab ⚡        \\n");
+    printf("========================================\\n");
+}
 
-print(f"🐍 Python Version: {sys.version.split()[0]}")
-print("🚀 Running 100% offline inside SatyamLabs IDE!")
-print("-" * 45)
+int factorial(int n) {
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
+}
 
-# Fibonacci calculation
-count = 12
-fib = fibonacci(count)
-print(f"Fibonacci Series (First {count} terms):")
-print(fib)
+int main() {
+    printHeader();
 
-# Quick Prime Finder
-def is_prime(num):
-    if num < 2: return False
-    for i in range(2, int(math.isqrt(num)) + 1):
-        if num % i == 0: return False
-    return True
+    int numbers[] = {1, 2, 3, 4, 5};
+    int size = 5;
 
-primes = [x for x in range(1, 60) if is_prime(x)]
-print("\nPrimes under 60:")
-print(primes)
-print("\n✨ Done executing!")
+    printf("Computing factorials:\\n");
+    for (int i = 0; i < size; i++) {
+        int num = numbers[i];
+        printf("  ➜ Factorial of %d = %d\\n", num, factorial(num));
+    }
+
+    printf("\\nMath computations:\\n");
+    printf("  sqrt(144.0) = %.2f\\n", sqrt(144.0));
+    printf("  pow(2.0, 8.0) = %.0f\\n", pow(2.0, 8.0));
+
+    printf("\\n✅ C Program Executed Successfully!\\n");
+    return 0;
+}
 `
       }
     ]
@@ -270,7 +302,7 @@ print("\n✨ Done executing!")
   {
     id: 'cpp-lab',
     name: 'C++ Modern Lab (C++20)',
-    description: 'High-performance C++ execution with formatted console output.',
+    description: 'High-performance C++ execution with formatted console output and math.',
     category: 'C++',
     files: [
       {
@@ -280,41 +312,42 @@ print("\n✨ Done executing!")
         isFolder: false,
         language: 'cpp',
         content: `#include <iostream>
-#include <vector>
-#include <numeric>
-#include <algorithm>
+#include <cmath>
 
-class Developer {
-public:
-    std::string name;
-    std::string role;
-
-    Developer(std::string n, std::string r) : name(n), role(r) {}
-
-    void introduce() const {
-        std::cout << "👋 Hi, I am " << name << " - " << role << std::endl;
-    }
-};
-
-int main() {
+void printBanner() {
     std::cout << "========================================" << std::endl;
     std::cout << "   🚀 SatyamLabs Modern C++ Lab 🚀      " << std::endl;
     std::cout << "========================================" << std::endl;
+}
 
-    Developer dev("Satyam", "Full-Stack Creator");
-    dev.introduce();
+int calculateSum(int arr[], int size) {
+    int total = 0;
+    for (int i = 0; i < size; i++) {
+        total += arr[i];
+    }
+    return total;
+}
 
-    std::vector<int> numbers = {15, 8, 42, 4, 16, 23};
-    std::cout << "\\nOriginal array: ";
-    for (int n : numbers) std::cout << n << " ";
+int main() {
+    printBanner();
 
-    std::sort(numbers.begin(), numbers.end());
-    std::cout << "\\nSorted array:   ";
-    for (int n : numbers) std::cout << n << " ";
+    int scores[] = {15, 8, 42, 4, 16, 23};
+    int count = 6;
 
-    int sum = std::accumulate(numbers.begin(), numbers.end(), 0);
-    std::cout << "\\nSum of elements: " << sum << std::endl;
+    std::cout << "Array elements: ";
+    for (int i = 0; i < count; i++) {
+        std::cout << scores[i] << " ";
+    }
+    std::cout << std::endl;
 
+    int sum = calculateSum(scores, count);
+    double avg = (double)sum / count;
+
+    std::cout << "Sum of elements: " << sum << std::endl;
+    std::cout << "Average: " << avg << std::endl;
+    std::cout << "Square root of sum: " << sqrt(sum) << std::endl;
+
+    std::cout << "\\n✨ C++ Program Finished Successfully!" << std::endl;
     return 0;
 }
 `
@@ -322,9 +355,61 @@ int main() {
     ]
   },
   {
+    id: 'python-lab',
+    name: 'Python 3 Algorithm Lab',
+    description: 'Runs online and offline with Python 3, algorithms, and math.',
+    category: 'Python',
+    files: [
+      {
+        id: 'f-py-1',
+        name: 'main.py',
+        path: '/main.py',
+        isFolder: false,
+        language: 'python',
+        content: `# SatyamLabs — Python 3 Environment
+import math
+
+def fibonacci(n):
+    seq = [0, 1]
+    while len(seq) < n:
+        seq.append(seq[len(seq)-1] + seq[len(seq)-2])
+    return seq
+
+def is_prime(n):
+    if n < 2:
+        return False
+    for i in range(2, int(math.sqrt(n)) + 1):
+        if n % i == 0:
+            return False
+    return True
+
+print("========================================")
+print("   🐍 SatyamLabs Python 3 Lab 🐍        ")
+print("========================================")
+
+count = 10
+fib = fibonacci(count)
+print(f"Fibonacci Series (First {count} terms):")
+print(fib)
+
+print("\\nPrime Numbers under 30:")
+primes = []
+for num in range(2, 30):
+    if is_prime(num):
+        primes.append(num)
+print(primes)
+
+total = sum(primes)
+print(f"\\nSum of primes: {total}")
+print("✨ Done executing successfully!")
+`
+      }
+    ]
+  },
+  {
     id: 'java-lab',
     name: 'Java Object-Oriented Lab',
-    description: 'Full Java class with streams, collections, and execution.',
+    description: 'Full Java class with loops, arrays, math, and execution.',
     category: 'Java',
     files: [
       {
@@ -334,7 +419,6 @@ int main() {
         isFolder: false,
         language: 'java',
         content: `import java.util.*;
-import java.util.stream.Collectors;
 
 class Main {
     public static void main(String[] args) {
@@ -342,22 +426,21 @@ class Main {
         System.out.println("    ☕ SatyamLabs Java Environment ☕   ");
         System.out.println("========================================");
 
-        List<String> frameworks = Arrays.asList(
-            "Spring Boot", "React", "Next.js", "Flutter", "Capacitor", "Node.js"
-        );
+        String[] languages = {"Java", "Python", "C++", "C", "JavaScript", "Rust"};
 
-        System.out.println("\\nAll Frameworks: " + frameworks);
+        System.out.println("\\nSupported Languages in SatyamLabs:");
+        for (int i = 0; i < languages.length; i++) {
+            System.out.println("  ➜ " + (i + 1) + ". " + languages[i]);
+        }
 
-        // Filter and sort using Java Streams
-        List<String> filtered = frameworks.stream()
-            .filter(f -> f.length() > 5)
-            .sorted()
-            .collect(Collectors.toList());
+        int total = 0;
+        for (int i = 1; i <= 10; i++) {
+            total += i;
+        }
 
-        System.out.println("Frameworks with > 5 chars (sorted):");
-        filtered.forEach(item -> System.out.println("  ➜ " + item));
-
-        System.out.println("\\nJava Program Executed Successfully!");
+        System.out.println("\\nSum of numbers from 1 to 10: " + total);
+        System.out.println("Square root of sum (55): " + Math.sqrt(total));
+        System.out.println("\\n☕ Java Program Executed Successfully!");
     }
 }
 `
