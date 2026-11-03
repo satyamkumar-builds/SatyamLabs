@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+:root {
+  --editor-bg: #1e1e1e;
+  --editor-text: #cccccc;
+  --editor-gutter-bg: #1e1e1e;
+  --editor-gutter-text: #858585;
+  --border-color: #2b2b2b;
+  --accent-color: #007acc;
+  --sidebar-bg: #252526;
+  --navbar-bg: #1f1f1f;
+  --activity-bg: #181818;
+  --status-bg: #007acc;
+  --editor-active-line: rgba(255, 255, 255, 0.04);
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -12,14 +26,14 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background-color: #1e1e1e;
-    color: #cccccc;
+    background-color: var(--editor-bg, #1e1e1e);
+    color: var(--editor-text, #cccccc);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     user-select: none;
   }
 }
 
-/* Custom Scrollbars to look like VS Code */
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -38,31 +52,45 @@
   background: rgba(100, 100, 100, 0.7);
 }
 
-/* CodeMirror custom styling overrides for authentic VS Code feel */
-.cm-editor {
+/* CodeMirror Strict Styling Overrides - Fix White Background Bug */
+.cm-theme-light, .cm-theme-dark, .cm-editor {
   height: 100% !important;
-  font-family: 'Consolas', 'Fira Code', 'JetBrains Mono', 'Menlo', 'Courier New', monospace !important;
+  background-color: var(--editor-bg, #1e1e1e) !important;
+  color: var(--editor-text, #cccccc) !important;
+}
+
+.cm-editor {
+  font-family: var(--editor-font, 'Consolas'), 'Fira Code', 'JetBrains Mono', 'Menlo', 'Courier New', monospace !important;
   font-size: var(--editor-font-size, 14px) !important;
 }
 
 .cm-scroller {
   overflow: auto !important;
   font-family: inherit !important;
+  background-color: var(--editor-bg, #1e1e1e) !important;
+}
+
+.cm-content {
+  background-color: var(--editor-bg, #1e1e1e) !important;
+  color: var(--editor-text, #cccccc) !important;
+  padding: 4px 0 !important;
 }
 
 .cm-gutters {
-  background-color: #1e1e1e !important;
-  color: #858585 !important;
-  border-right: 1px solid #2d2d2d !important;
+  background-color: var(--editor-gutter-bg, #1e1e1e) !important;
+  color: var(--editor-gutter-text, #858585) !important;
+  border-right: 1px solid var(--border-color, #2b2b2b) !important;
+  min-width: 46px !important;
 }
 
 .cm-activeLineGutter {
-  background-color: #282828 !important;
-  color: #c6c6c6 !important;
+  background-color: transparent !important;
+  color: var(--accent-color, #007acc) !important;
+  font-weight: bold !important;
 }
 
 .cm-activeLine {
-  background-color: rgba(255, 255, 255, 0.04) !important;
+  background-color: var(--editor-active-line, rgba(255, 255, 255, 0.04)) !important;
 }
 
 .cm-selectionMatch {

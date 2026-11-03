@@ -150,6 +150,23 @@ export function App() {
     } catch (e) {}
   }, [settings]);
 
+  // Synchronize CSS variables across entire document when theme or font changes
+  useEffect(() => {
+    const conf = THEME_CONFIGS[settings.theme] || THEME_CONFIGS['dark-plus'];
+    document.documentElement.style.setProperty('--editor-bg', conf.bg);
+    document.documentElement.style.setProperty('--editor-text', conf.text);
+    document.documentElement.style.setProperty('--editor-gutter-bg', conf.bg);
+    document.documentElement.style.setProperty('--editor-gutter-text', conf.textMuted);
+    document.documentElement.style.setProperty('--border-color', conf.border);
+    document.documentElement.style.setProperty('--accent-color', conf.accent);
+    document.documentElement.style.setProperty('--sidebar-bg', conf.sidebarBg);
+    document.documentElement.style.setProperty('--navbar-bg', conf.navbarBg);
+    document.documentElement.style.setProperty('--activity-bg', conf.activityBg);
+    document.documentElement.style.setProperty('--status-bg', conf.statusBg);
+    document.documentElement.style.setProperty('--editor-active-line', `${conf.accent}18`);
+    document.documentElement.style.setProperty('--editor-font', settings.fontFamily || 'Consolas');
+  }, [settings.theme, settings.fontFamily]);
+
   // Auto-close sidebar on mobile initial render
   useEffect(() => {
     if (window.innerWidth < 768) {

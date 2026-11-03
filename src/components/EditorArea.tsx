@@ -250,6 +250,7 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
             ref={cmRef}
             value={activeFile.content}
             height="100%"
+            theme={settings.theme === 'light' ? 'light' : 'dark'}
             extensions={[
               ...languageExtensions,
               ...snippetExtension,
