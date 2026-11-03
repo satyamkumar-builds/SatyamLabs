@@ -168,19 +168,21 @@ export function App() {
     document.documentElement.style.setProperty('--editor-font', settings.fontFamily || 'Consolas');
   }, [settings.theme, settings.fontFamily]);
 
-  // Ensure an active file is ALWAYS selected on startup or if activeFile becomes null
+  const isInitialMount = useRef(true);
+
+  // Auto-open first file on initial page load if no tabs are open
   useEffect(() => {
-    if (!activeFile && files.length > 0) {
-      const firstNonFolder = files.find(f => !f.isFolder);
-      if (firstNonFolder) {
-        setActiveFileId(firstNonFolder.id);
-        setTabs(prev => {
-          if (prev.some(t => t.fileId === firstNonFolder.id)) return prev;
-          return [{ fileId: firstNonFolder.id }, ...prev];
-        });
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (tabs.length === 0 && files.length > 0) {
+        const firstNonFolder = files.find(f => !f.isFolder);
+        if (firstNonFolder) {
+          setActiveFileId(firstNonFolder.id);
+          setTabs([{ fileId: firstNonFolder.id }]);
+        }
       }
     }
-  }, [activeFile, files]);
+  }, []);
 
   // Auto-close sidebar on mobile initial render
   useEffect(() => {
@@ -300,10 +302,16 @@ export function App() {
   };
 
   const handleCloseTab = (fileId: string) => {
+    const tabIndex = tabs.findIndex(t => t.fileId === fileId);
     const nextTabs = tabs.filter(t => t.fileId !== fileId);
     setTabs(nextTabs);
     if (activeFileId === fileId) {
-      setActiveFileId(nextTabs[0]?.fileId || '');
+      if (nextTabs.length > 0) {
+        const nextIndex = Math.min(tabIndex, nextTabs.length - 1);
+        setActiveFileId(nextTabs[nextIndex].fileId);
+      } else {
+        setActiveFileId('');
+      }
     }
   };
 
@@ -383,6 +391,7 @@ export function App() {
         setActiveFileId(first.id);
         setTabs(template.files.filter(f => !f.isFolder).map(f => ({ fileId: f.id })));
       }
+      setActivePanel('explorer');
       setIsSidebarOpen(false);
       setLogs([
         {
@@ -463,6 +472,7 @@ export function App() {
           onLoadTemplate={handleLoadTemplate}
           onImportFiles={handleImportFiles}
           activePanel={activePanel}
+          setActivePanel={setActivePanel}
         />
 
         {/* Center Workspace (Editor + Live Preview + Terminal) */}
@@ -516,7 +526,14 @@ export function App() {
 
       {/* Native Mobile Bottom Navigation Bar */}
       <MobileBottomBar
-        onToggleFiles={() => setIsSidebarOpen(p => !p)}
+        onToggleFiles={() => {
+          if (!isSidebarOpen) {
+            setActivePanel('explorer');
+            setIsSidebarOpen(true);
+          } else {
+            setIsSidebarOpen(false);
+          }
+        }}
         isFilesOpen={isSidebarOpen}
         fileCount={files.filter(f => !f.isFolder).length}
         viewMode={viewMode}
