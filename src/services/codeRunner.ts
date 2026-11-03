@@ -22,7 +22,8 @@ export async function runCode(
   language: SupportedLanguage,
   code: string,
   filename: string,
-  onLog: (log: ExecutionLog) => void
+  onLog: (log: ExecutionLog) => void,
+  stdin: string = ''
 ): Promise<{ success: boolean; durationMs: number }> {
   const startTime = performance.now();
 
@@ -36,6 +37,9 @@ export async function runCode(
   };
 
   addLog(`[SatyamLabs] Launching execution for ${filename}...`, 'system');
+  if (stdin.trim()) {
+    addLog(`[SatyamLabs] Standard Input (stdin): "${stdin.trim()}"`, 'info');
+  }
 
   // ==========================================
   // 1. JavaScript / TypeScript (100% Offline)
@@ -83,7 +87,7 @@ export async function runCode(
   }
 
   // ==========================================
-  // 2. Python (Offline Pyodide or Native Runner)
+  // 2. Python (Pyodide WASM + Offline Engine)
   // ==========================================
   if (language === 'python') {
     // Try Pyodide WASM if available
@@ -107,21 +111,45 @@ export async function runCode(
       }
     }
 
+    // Try Wandbox if online and code has input()
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
+    if (isOnline && (code.includes('input(') || stdin.trim())) {
+      try {
+        const response = await fetch('https://wandbox.org/api/compile.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            compiler: 'cpython-head',
+            code,
+            stdin: stdin || '',
+          }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.program_output) addLog(data.program_output, 'stdout');
+          if (data.program_error) addLog(data.program_error, 'stderr');
+          const duration = Math.round(performance.now() - startTime);
+          addLog(`[Python 3 Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
+          return { success: data.status === 0 || data.status === '0', durationMs: duration };
+        }
+      } catch (e) {}
+    }
+
     // Offline Native Python execution
     addLog('[SatyamLabs] Running via Offline Python Engine...', 'system');
-    const result = runOfflinePython(code, (text, type) => addLog(text, type));
+    const result = runOfflinePython(code, (text, type) => addLog(text, type), stdin);
     const duration = Math.round(performance.now() - startTime);
     addLog(`[Offline Python] Finished in ${duration}ms`, 'system');
     return { success: result.success, durationMs: duration };
   }
 
   // ==========================================
-  // 3. C & C++ (Offline Native + Online Wandbox)
+  // 3. C & C++ (Wandbox GCC + Offline Engine)
   // ==========================================
   if (language === 'c' || language === 'cpp') {
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
 
-    // If online, try Wandbox first for full GCC features
+    // If online, use Wandbox for GCC compilation with STDIN support
     if (isOnline) {
       try {
         addLog(`[GCC Cloud Compiler] Compiling ${filename} with GCC...`, 'system');
@@ -131,6 +159,7 @@ export async function runCode(
           body: JSON.stringify({
             compiler: 'gcc-head',
             code,
+            stdin: stdin || '',
           }),
         });
 
@@ -139,7 +168,7 @@ export async function runCode(
           if (data.compiler_error || data.compiler_message) {
             const msg = data.compiler_error || data.compiler_message;
             if (data.status !== 0 && data.status !== '0') {
-              addLog(`[Compilation Note]:\n${msg}`, 'stderr');
+              addLog(`[Compilation Output]:\n${msg}`, 'stderr');
             }
           }
           if (data.program_output) {
@@ -158,16 +187,16 @@ export async function runCode(
       }
     }
 
-    // Offline Native C/C++ Execution
+    // Offline Native C/C++ Execution with STDIN
     addLog('[SatyamLabs] Running via Offline Native C/C++ Engine...', 'system');
-    const result = runOfflineCCpp(code, (text, type) => addLog(text, type));
+    const result = runOfflineCCpp(code, (text, type) => addLog(text, type), stdin);
     const duration = Math.round(performance.now() - startTime);
     addLog(`[Offline Engine] Completed in ${duration}ms`, 'system');
     return { success: result.success, durationMs: duration };
   }
 
   // ==========================================
-  // 4. Java (Offline Native + Online Wandbox)
+  // 4. Java (Wandbox OpenJDK + Offline Engine)
   // ==========================================
   if (language === 'java') {
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
@@ -181,6 +210,7 @@ export async function runCode(
           body: JSON.stringify({
             compiler: 'openjdk-jdk-21+35',
             code,
+            stdin: stdin || '',
           }),
         });
 
@@ -189,7 +219,7 @@ export async function runCode(
           if (data.compiler_error || data.compiler_message) {
             const msg = data.compiler_error || data.compiler_message;
             if (data.status !== 0 && data.status !== '0') {
-              addLog(`[Compilation Note]:\n${msg}`, 'stderr');
+              addLog(`[Compilation Output]:\n${msg}`, 'stderr');
             }
           }
           if (data.program_output) {
@@ -208,9 +238,9 @@ export async function runCode(
       }
     }
 
-    // Offline Native Java execution
+    // Offline Native Java execution with STDIN
     addLog('[SatyamLabs] Running via Offline Java Engine...', 'system');
-    const result = runOfflineJava(code, (text, type) => addLog(text, type));
+    const result = runOfflineJava(code, (text, type) => addLog(text, type), stdin);
     const duration = Math.round(performance.now() - startTime);
     addLog(`[Offline Engine] Completed in ${duration}ms`, 'system');
     return { success: result.success, durationMs: duration };
@@ -226,7 +256,7 @@ export async function runCode(
       const response = await fetch('https://wandbox.org/api/compile.json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ compiler, code }),
+        body: JSON.stringify({ compiler, code, stdin: stdin || '' }),
       });
 
       if (response.ok) {
@@ -256,7 +286,6 @@ export function buildWebPreview(htmlCode: string, cssCode: string, jsCode: strin
     ${cssCode}
   </style>
   <script>
-    // Intercept console messages and relay to parent IDE window
     (function() {
       const origLog = console.log;
       const origWarn = console.warn;

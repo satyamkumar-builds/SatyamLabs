@@ -49,4 +49,12 @@ public class MainActivity extends BridgeActivity {
             });
         }
     }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().clearCache(true);
+        }
+    }
 }

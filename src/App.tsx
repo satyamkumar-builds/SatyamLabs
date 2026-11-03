@@ -12,12 +12,14 @@ import { STARTER_TEMPLATES, type ProjectTemplate } from './utils/starterTemplate
 import { getLanguageFromFilename } from './utils/fileIcons';
 import { runCode, buildWebPreview } from './services/codeRunner';
 import { Navbar } from './components/Navbar';
+import { ActivityBar } from './components/ActivityBar';
 import { Sidebar } from './components/Sidebar';
 import { EditorArea, type EditorAreaHandle } from './components/EditorArea';
 import { MobileKeyboardBar } from './components/MobileKeyboardBar';
 import { PreviewPanel } from './components/PreviewPanel';
 import { TerminalPanel } from './components/TerminalPanel';
 import { SettingsModal } from './components/SettingsModal';
+import { CommandPalette } from './components/CommandPalette';
 
 const STORAGE_KEY_FILES = 'satyamlabs_files';
 const STORAGE_KEY_SETTINGS = 'satyamlabs_settings';
@@ -82,20 +84,22 @@ export function App() {
   const [logs, setLogs] = useState<ExecutionLog[]>([
     {
       id: 'init-1',
-      text: '🚀 Welcome to SatyamLabs IDE! VS Code feel on Mobile & Web.',
+      text: '🚀 Welcome to SatyamLabs IDE v2.0.0! Professional VS Code experience on Mobile & Web.',
       type: 'system',
       timestamp: new Date().toLocaleTimeString(),
     },
     {
       id: 'init-2',
-      text: 'Languages: HTML/CSS/JS, Python 3 (Offline WASM), C++, Java, Rust, SQL.',
+      text: 'Full support: C, C++, Java, Python 3, Rust, SQL, HTML, CSS, JS with interactive STDIN.',
       type: 'info',
       timestamp: new Date().toLocaleTimeString(),
     }
   ]);
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [stdin, setStdin] = useState<string>('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<ActivePanel>('explorer');
   const [viewMode, setViewMode] = useState<ViewMode>('editor');
   const [isRunning, setIsRunning] = useState(false);
@@ -144,6 +148,13 @@ export function App() {
     } catch (e) {}
   }, [settings]);
 
+  // Auto-close sidebar on small screens initially
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
+
   // Listen for console messages from iframe preview
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
@@ -178,8 +189,8 @@ export function App() {
     return buildWebPreview(html, css, js);
   }, [files, previewRefreshKey]);
 
-  // Run Active File or Web Project
-  const handleRun = useCallback(async () => {
+  // Run Active File or Web Project with STDIN support
+  const handleRun = useCallback(async (customStdin?: string) => {
     if (!activeFile) return;
 
     setIsRunning(true);
@@ -188,7 +199,6 @@ export function App() {
     const isWebFile = ['html', 'css', 'javascript'].includes(activeFile.language);
 
     if (isWebFile && (viewMode === 'editor' || viewMode === 'split')) {
-      // If web file, refresh preview and switch to split view on tablet/desktop or preview on mobile
       setPreviewRefreshKey(k => k + 1);
       if (window.innerWidth < 768) {
         setViewMode('preview');
@@ -197,19 +207,42 @@ export function App() {
       }
     }
 
+    const currentStdin = customStdin !== undefined ? customStdin : stdin;
+    if (customStdin !== undefined) {
+      setStdin(customStdin);
+    }
+
+    // Check if code has input methods but stdin is empty
+    const needsInput = activeFile.content.includes('scanf') || 
+                       activeFile.content.includes('cin >>') || 
+                       activeFile.content.includes('input(') || 
+                       activeFile.content.includes('Scanner');
+    if (needsInput && !currentStdin.trim()) {
+      setLogs(prev => [
+        ...prev,
+        {
+          id: 'hint-' + Date.now(),
+          text: '💡 Tip: Your code uses input functions (scanf/cin). Enter input in the Terminal box below and press Enter to execute with input!',
+          type: 'info',
+          timestamp: new Date().toLocaleTimeString(),
+        }
+      ]);
+    }
+
     await runCode(
       activeFile.language,
       activeFile.content,
       activeFile.name,
       (log) => {
         setLogs(prev => [...prev, log]);
-      }
+      },
+      currentStdin
     );
 
     setIsRunning(false);
-  }, [activeFile, viewMode]);
+  }, [activeFile, viewMode, stdin]);
 
-  // Global Keyboard Shortcuts
+  // Global Keyboard Shortcuts (VS Code Standard)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+Enter or Cmd+Enter -> Run
@@ -227,6 +260,11 @@ export function App() {
         e.preventDefault();
         setIsTerminalOpen(prev => !prev);
       }
+      // Ctrl+P / Cmd+P or F1 -> Command Palette
+      if (((e.ctrlKey || e.metaKey) && e.key === 'p') || e.key === 'F1') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -239,7 +277,6 @@ export function App() {
     if (!tabs.some(t => t.fileId === fileId)) {
       setTabs(prev => [...prev, { fileId }]);
     }
-    // Auto-close sidebar on mobile after selecting
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
@@ -257,15 +294,18 @@ export function App() {
     setFiles(prev => prev.map(f => f.id === fileId ? { ...f, content: newContent } : f));
   };
 
-  const handleCreateFile = (name: string, isFolder: boolean) => {
+  const handleCreateFile = (name?: string, isFolder: boolean = false) => {
+    const filename = name || prompt('Enter file name (e.g. main.cpp, script.py):');
+    if (!filename || !filename.trim()) return;
+
     const newId = 'file-' + Date.now();
     const newFile: FileItem = {
       id: newId,
-      name,
-      path: '/' + name,
+      name: filename.trim(),
+      path: '/' + filename.trim(),
       content: '',
       isFolder,
-      language: getLanguageFromFilename(name),
+      language: getLanguageFromFilename(filename.trim()),
     };
     setFiles(prev => [...prev, newFile]);
     if (!isFolder) {
@@ -301,7 +341,7 @@ export function App() {
       setLogs([
         {
           id: 'load-' + Date.now(),
-          text: `[Workspace] Loaded "${template.name}" project template.`,
+          text: `[Workspace] Loaded "${template.name}" template.`,
           type: 'system',
           timestamp: new Date().toLocaleTimeString(),
         }
@@ -309,7 +349,6 @@ export function App() {
     }
   };
 
-  // Download project as ZIP
   const handleDownloadZip = async () => {
     const zip = new JSZip();
     files.forEach(f => {
@@ -328,17 +367,17 @@ export function App() {
 
   return (
     <div 
-      className="flex flex-col h-full w-full min-h-screen overflow-hidden bg-[#1e1e1e] text-[#cccccc]"
+      className="flex flex-col h-full w-full min-h-screen overflow-hidden bg-[#1e1e1e] text-[#cccccc] font-sans"
       style={{
         paddingLeft: 'env(safe-area-inset-left, 0px)',
         paddingRight: 'env(safe-area-inset-right, 0px)',
       }}
     >
-      {/* Top Navbar */}
+      {/* VS Code Title Bar / Top Navbar */}
       <Navbar
         projectName={activeFile?.name || 'Workspace'}
         isRunning={isRunning}
-        onRun={handleRun}
+        onRun={() => handleRun()}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
         isTerminalOpen={isTerminalOpen}
@@ -347,11 +386,23 @@ export function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onDownloadZip={handleDownloadZip}
         onOpenTemplates={() => { setActivePanel('templates'); setIsSidebarOpen(true); }}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onCreateFile={() => handleCreateFile()}
+        activeFileName={activeFile?.name}
       />
 
-      {/* Main Workspace (Sidebar + Editor + Preview) */}
+      {/* Main VS Code Layout (Activity Bar + Sidebar + Editor + Preview + Terminal) */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Explorer / Sidebar */}
+        {/* Activity Bar (VS Code left-most icon strip) */}
+        <ActivityBar
+          activePanel={activePanel}
+          onSelectPanel={setActivePanel}
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(p => !p)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+
+        {/* Primary Sidebar (Explorer / Search / Templates / Source Control) */}
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
@@ -366,11 +417,10 @@ export function App() {
           setActivePanel={setActivePanel}
         />
 
-        {/* Center Workspace */}
+        {/* Center Workspace (Editor + Live Preview + Terminal) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Editor & Preview Split Area */}
           <div className="flex-1 flex overflow-hidden">
-            {/* Editor Area */}
             {(viewMode === 'editor' || viewMode === 'split') && (
               <div className="flex-1 flex flex-col h-full overflow-hidden">
                 <EditorArea
@@ -386,7 +436,6 @@ export function App() {
               </div>
             )}
 
-            {/* Live Preview Panel */}
             {(viewMode === 'preview' || viewMode === 'split') && (
               <PreviewPanel
                 srcDoc={previewSrcDoc}
@@ -402,28 +451,35 @@ export function App() {
             onRedo={() => editorRef.current?.redo()}
           />
 
-          {/* Bottom Integrated Terminal / Output Console */}
+          {/* Bottom Integrated Terminal / Output Console with STDIN */}
           <TerminalPanel
             isOpen={isTerminalOpen}
             onClose={() => setIsTerminalOpen(false)}
             logs={logs}
             onClearLogs={() => setLogs([])}
-            onSendCommand={(cmd) => {
-              setLogs(prev => [
-                ...prev,
-                {
-                  id: 'cmd-' + Date.now(),
-                  text: `$ ${cmd}`,
-                  type: 'system',
-                  timestamp: new Date().toLocaleTimeString(),
-                }
-              ]);
-            }}
+            stdin={stdin}
+            onChangeStdin={setStdin}
+            onRunStdin={(val) => handleRun(val)}
           />
         </div>
       </div>
 
-      {/* Settings Modal */}
+      {/* VS Code Command Palette (Ctrl+P / F1) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        files={files}
+        onSelectFile={handleSelectFile}
+        onRun={() => handleRun()}
+        onToggleTerminal={() => setIsTerminalOpen(p => !p)}
+        onToggleSidebar={() => setIsSidebarOpen(p => !p)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenTemplates={() => { setActivePanel('templates'); setIsSidebarOpen(true); }}
+        onDownloadZip={handleDownloadZip}
+        onCreateFile={() => handleCreateFile()}
+      />
+
+      {/* Settings Preferences Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
