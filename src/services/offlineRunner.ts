@@ -48,6 +48,9 @@ export function transpileC(cCode: string): string {
   js = js.replace(/#define\s+([A-Za-z0-9_]+)\s+([^\n]+)/g, 'const $1 = $2;');
   js = js.replace(/using\s+namespace\s+std\s*;/g, '');
 
+  // Strip std:: namespace prefix everywhere (std::cout, std::endl, std::cin, std::string, etc.)
+  js = js.replace(/\bstd::/g, '');
+
   // 3. Transform function declarations FIRST before variable replacements
   // e.g. int calculateSum(int arr[], int size) { -> function calculateSum(arr, size) {
   js = js.replace(/\b(?:int|void|double|float|char|bool|long|short)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{/g, (_, fnName, params) => {
@@ -256,8 +259,29 @@ export function runOfflineJava(
       js = js.replace(new RegExp(`\\b${t}\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=|;|,|\\))`, 'g'), 'let $1 $2');
     }
 
-    const mainMatch = js.match(/public\s+static\s+void\s+main\s*\([^)]*\)\s*\{([\s\S]*)\}/);
-    const body = mainMatch ? mainMatch[1] : js;
+    // Extract main method body cleanly using balanced brace matching
+    let body = js;
+    const mainIndex = js.search(/(?:public\s+)?(?:static\s+)?void\s+main\s*\([^)]*\)\s*\{/);
+    if (mainIndex !== -1) {
+      const openBraceIndex = js.indexOf('{', mainIndex);
+      if (openBraceIndex !== -1) {
+        let depth = 1;
+        let i = openBraceIndex + 1;
+        while (i < js.length && depth > 0) {
+          if (js[i] === '{') depth++;
+          else if (js[i] === '}') depth--;
+          i++;
+        }
+        body = js.substring(openBraceIndex + 1, i - 1);
+      }
+    } else {
+      // Fallback: strip class declaration and outer closing brace
+      body = js.replace(/(?:public\s+)?class\s+[A-Za-z0-9_]+[\s\S]*?\{/, '');
+      const lastBrace = body.lastIndexOf('}');
+      if (lastBrace !== -1) {
+        body = body.substring(0, lastBrace);
+      }
+    }
 
     const runner = new Function('System', 'Scanner', 'Arrays', 'Math', `
       "use strict";

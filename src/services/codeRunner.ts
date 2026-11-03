@@ -18,7 +18,7 @@ const WANDBOX_COMPILER_MAP: Record<string, string> = {
   sql: 'sqlite-3.46.1',
 };
 
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 8000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 3500): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -114,7 +114,7 @@ export async function runCode(
           code,
           stdin: stdin || '',
         }),
-      }, 7000);
+      }, 3500);
 
       if (response.ok) {
         const data = await response.json();
@@ -173,7 +173,7 @@ export async function runCode(
           code,
           stdin: stdin || '',
         }),
-      }, 7000);
+      }, 3500);
 
       if (response.ok) {
         const data = await response.json();
@@ -223,7 +223,7 @@ export async function runCode(
           code: preparedJavaCode,
           stdin: stdin || '',
         }),
-      }, 7000);
+      }, 3500);
 
       if (response.ok) {
         const data = await response.json();
