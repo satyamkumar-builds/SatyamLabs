@@ -14,7 +14,7 @@ const WANDBOX_COMPILER_MAP: Record<string, string> = {
   c: 'gcc-head',
   java: 'openjdk-jdk-21+35',
   rust: 'rust-1.82.0',
-  python: 'cpython-head',
+  python: 'cpython-3.12.7',
   sql: 'sqlite-3.46.1',
 };
 
@@ -87,15 +87,46 @@ export async function runCode(
   }
 
   // ==========================================
-  // 2. Python (Pyodide WASM + Offline Engine)
+  // 2. Python (Wandbox CPython 3.12 + Pyodide + Offline Engine)
   // ==========================================
   if (language === 'python') {
-    // Try Pyodide WASM if available
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
+
+    // 1. Try Wandbox CPython 3.12 (Full real Linux Python 3 with stdlib & STDIN)
+    if (isOnline) {
+      try {
+        addLog(`[Python 3.12 Engine] Dispatching ${filename} to compiler engine...`, 'system');
+        const response = await fetch('https://wandbox.org/api/compile.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            compiler: 'cpython-3.12.7',
+            code,
+            stdin: stdin || '',
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.program_output) addLog(data.program_output, 'stdout');
+          if (data.program_error) addLog(data.program_error, 'stderr');
+          const duration = Math.round(performance.now() - startTime);
+          addLog(`[Python 3.12 Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
+          return { success: data.status === 0 || data.status === '0', durationMs: duration };
+        }
+      } catch (e: any) {
+        addLog(`[Network Notice]: Cloud compiler unavailable, attempting local engine...`, 'info');
+      }
+    }
+
+    // 2. Try Pyodide WASM if available
     if (typeof window.loadPyodide === 'function') {
       try {
         if (!window.pyodideInstance) {
           addLog('[Pyodide] Initializing WebAssembly Python 3 runtime...', 'system');
-          window.pyodideInstance = await window.loadPyodide();
+          window.pyodideInstance = await window.loadPyodide({
+            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
+          });
         }
 
         const pyodide = window.pyodideInstance;
@@ -107,35 +138,11 @@ export async function runCode(
         addLog(`[Pyodide] Completed in ${duration}ms`, 'system');
         return { success: true, durationMs: duration };
       } catch (wasmErr: any) {
-        addLog(`[Pyodide Notice]: ${wasmErr.message || 'Falling back to offline native Python engine'}`, 'info');
+        addLog(`[Pyodide Notice]: ${wasmErr.message || 'WASM runtime error'}`, 'info');
       }
     }
 
-    // Try Wandbox if online and code has input()
-    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
-    if (isOnline && (code.includes('input(') || stdin.trim())) {
-      try {
-        const response = await fetch('https://wandbox.org/api/compile.json', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            compiler: 'cpython-head',
-            code,
-            stdin: stdin || '',
-          }),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.program_output) addLog(data.program_output, 'stdout');
-          if (data.program_error) addLog(data.program_error, 'stderr');
-          const duration = Math.round(performance.now() - startTime);
-          addLog(`[Python 3 Engine] Finished with exit status ${data.status ?? 0} in ${duration}ms`, 'system');
-          return { success: data.status === 0 || data.status === '0', durationMs: duration };
-        }
-      } catch (e) {}
-    }
-
-    // Offline Native Python execution
+    // 3. Fallback to Offline Native Python execution
     addLog('[SatyamLabs] Running via Offline Python Engine...', 'system');
     const result = runOfflinePython(code, (text, type) => addLog(text, type), stdin);
     const duration = Math.round(performance.now() - startTime);

@@ -291,37 +291,146 @@ export function runOfflinePython(
   };
 
   const len = (item: any): number => (item && item.length !== undefined ? item.length : 0);
-  const sum = (arr: number[]): number => arr.reduce((a, b) => a + b, 0);
+  const sum = (arr: number[]): number => (Array.isArray(arr) ? arr.reduce((a, b) => a + b, 0) : 0);
+  const py_int = (x: any) => parseInt(x, 10);
+  const py_float = (x: any) => parseFloat(x);
+  const py_str = (x: any) => String(x);
+  const py_bool = (x: any) => Boolean(x);
+
+  const math = {
+    ...Math,
+    pi: Math.PI,
+    e: Math.E,
+    sqrt: Math.sqrt,
+    pow: Math.pow,
+    floor: Math.floor,
+    ceil: Math.ceil,
+    sin: Math.sin,
+    cos: Math.cos,
+    tan: Math.tan,
+    log: Math.log,
+  };
 
   try {
-    const lines = code.split('\n');
+    const rawLines = code.split('\n');
     const jsLines: string[] = [];
+    const indentStack: number[] = [];
 
-    for (let rawLine of lines) {
-      let line = rawLine;
-      if (line.trim().startsWith('#')) continue;
+    for (let rawLine of rawLines) {
+      // Check indent
+      const trimmed = rawLine.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
 
+      const indent = rawLine.search(/\S/);
+
+      // Close blocks if indent decreased
+      while (indentStack.length > 0 && indent <= indentStack[indentStack.length - 1]) {
+        indentStack.pop();
+        jsLines.push('}');
+      }
+
+      let line = trimmed;
+
+      // Ignore imports
+      if (line.startsWith('import ') || line.startsWith('from ')) {
+        continue;
+      }
+
+      // f-strings
       line = line.replace(/f"([^"]*)"/g, (_, str) => {
         const interpolated = str.replace(/\{([^}]+)\}/g, '${$1}');
         return '`' + interpolated + '`';
       });
+      line = line.replace(/f'([^']*)'/g, (_, str) => {
+        const interpolated = str.replace(/\{([^}]+)\}/g, '${$1}');
+        return '`' + interpolated + '`';
+      });
 
+      // Booleans & Null
       line = line.replace(/\bTrue\b/g, 'true');
       line = line.replace(/\bFalse\b/g, 'false');
       line = line.replace(/\bNone\b/g, 'null');
-      line = line.replace(/print\s+(.+)$/g, 'print($1)');
+      line = line.replace(/\band\b/g, '&&');
+      line = line.replace(/\bor\b/g, '||');
+      line = line.replace(/\bnot\b/g, '!');
 
-      jsLines.push(line);
+      // Function definitions: def foo(x, y): -> function foo(x, y) {
+      if (line.startsWith('def ') && line.endsWith(':')) {
+        const signature = line.substring(4, line.length - 1);
+        jsLines.push(`function ${signature} {`);
+        indentStack.push(indent);
+        continue;
+      }
+
+      // If condition: if cond: -> if (cond) {
+      if (line.startsWith('if ') && line.endsWith(':')) {
+        const cond = line.substring(3, line.length - 1);
+        jsLines.push(`if (${cond}) {`);
+        indentStack.push(indent);
+        continue;
+      }
+
+      // Elif condition: elif cond: -> } else if (cond) {
+      if (line.startsWith('elif ') && line.endsWith(':')) {
+        const cond = line.substring(5, line.length - 1);
+        jsLines.push(`} else if (${cond}) {`);
+        continue;
+      }
+
+      // Else: else: -> } else {
+      if (line === 'else:') {
+        jsLines.push(`} else {`);
+        continue;
+      }
+
+      // While loop: while cond: -> while (cond) {
+      if (line.startsWith('while ') && line.endsWith(':')) {
+        const cond = line.substring(6, line.length - 1);
+        jsLines.push(`while (${cond}) {`);
+        indentStack.push(indent);
+        continue;
+      }
+
+      // For loop with range: for x in range(...): -> for (let x of range(...)) {
+      const forMatch = line.match(/^for\s+([a-zA-Z0-9_,\s]+)\s+in\s+(.+):$/);
+      if (forMatch) {
+        const [, varName, iterable] = forMatch;
+        jsLines.push(`for (let ${varName} of ${iterable}) {`);
+        indentStack.push(indent);
+        continue;
+      }
+
+      // Print statements without parentheses: print "hello"
+      line = line.replace(/^print\s+([^()]+)$/, 'print($1)');
+
+      jsLines.push(line + ';');
+    }
+
+    // Close any remaining open indents
+    while (indentStack.length > 0) {
+      indentStack.pop();
+      jsLines.push('}');
     }
 
     const transpiled = jsLines.join('\n');
 
-    const runner = new Function('print', 'input', 'range', 'len', 'sum', 'Math', `
-      "use strict";
-      ${transpiled}
-    `);
+    const runner = new Function(
+      'print',
+      'input',
+      'range',
+      'len',
+      'sum',
+      'int',
+      'float',
+      'str',
+      'bool',
+      'math',
+      'Math',
+      `"use strict";
+${transpiled}`
+    );
 
-    runner(print, input, range, len, sum, Math);
+    runner(print, input, range, len, sum, py_int, py_float, py_str, py_bool, math, Math);
     return { success: true, output: outputAccumulator };
   } catch (err: any) {
     onLog(`[Offline Python Error]: ${err.message || String(err)}`, 'stderr');
