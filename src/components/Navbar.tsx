@@ -76,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Brand Icon & Active File */}
         <div className="flex items-center gap-1.5 font-semibold text-white shrink-0">
-          <img src="./logo.svg" alt="SatyamLabs" className="w-4 h-4" />
+          <img src="./logo.png" alt="SatyamLabs" className="w-5 h-5 rounded-md object-contain bg-white shrink-0" />
           <span className="hidden sm:inline bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent font-bold text-[13px]">
             SatyamLabs
           </span>

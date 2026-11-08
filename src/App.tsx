@@ -22,6 +22,7 @@ import { TerminalPanel } from './components/TerminalPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { CommandPalette } from './components/CommandPalette';
 import { MobileBottomBar } from './components/MobileBottomBar';
+import { UpdateNotification } from './components/UpdateNotification';
 
 const STORAGE_KEY_FILES = 'satyamlabs_files';
 const STORAGE_KEY_SETTINGS = 'satyamlabs_settings';
@@ -535,6 +536,9 @@ export function App() {
         settings={settings}
         onUpdateSettings={(newSettings) => setSettings(s => ({ ...s, ...newSettings }))}
       />
+
+      {/* In-App Auto-Update Notification Banner */}
+      <UpdateNotification />
     </div>
   );
 }

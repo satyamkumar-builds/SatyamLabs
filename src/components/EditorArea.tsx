@@ -122,7 +122,11 @@ export const EditorArea = forwardRef<EditorAreaHandle, EditorAreaProps>(
         >
           <div className="max-w-md w-full my-auto py-4">
             <div className="flex items-center justify-center gap-3 mb-2">
-              <img src="./logo.svg" alt="SatyamLabs" className="w-12 h-12" />
+              <img 
+                src="./logo.png" 
+                alt="SatyamLabs" 
+                className="w-14 h-14 rounded-2xl shadow-lg border border-white/10 object-contain bg-white shrink-0" 
+              />
               <div className="text-left">
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
                   SatyamLabs Studio
